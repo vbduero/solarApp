@@ -10,8 +10,9 @@ from sqlalchemy import desc
 from ..database import get_db
 from ..models.user import User
 from ..models.plant import Plant
-from ..models.task import Task, TaskStatus
+from ..models.task import Task, TaskStatus, TaskType
 from ..schemas.task import TaskCreate, TaskUpdate, TaskResponse
+from ..services.task_service import apply_overdue_state, refresh_overdue_tasks
 from ..utils.auth import get_current_user
 
 router = APIRouter(prefix="/api/tasks", tags=["Tareas"])
@@ -19,8 +20,8 @@ router = APIRouter(prefix="/api/tasks", tags=["Tareas"])
 
 @router.get("/", response_model=List[TaskResponse])
 async def get_tasks(
-    task_type: Optional[str] = Query(None, description="Filtrar por tipo de tarea"),
-    status: Optional[str] = Query(None, description="Filtrar por estado"),
+    task_type: Optional[TaskType] = Query(None, description="Filtrar por tipo de tarea"),
+    status: Optional[TaskStatus] = Query(None, description="Filtrar por estado"),
     upcoming: bool = Query(False, description="True para tareas próximas, False para hoy"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -29,14 +30,17 @@ async def get_tasks(
     
     Para la vista de 'Tareas' con tabs Hoy/Próximamente.
     """
+    now = datetime.now(timezone.utc)
+
+    # Se actualiza antes de consultar para que el filtro por estado use el valor calculado
+    refresh_overdue_tasks(db, current_user.id, now)
+
     query = db.query(Task).filter(Task.user_id == current_user.id)
 
     if task_type:
         query = query.filter(Task.task_type == task_type)
     if status:
         query = query.filter(Task.status == status)
-
-    now = datetime.now(timezone.utc)
 
     if upcoming:
         # Tareas futuras (próximamente)
@@ -134,8 +138,10 @@ async def update_task(
 
     if task_data.status:
         task.status = task_data.status
-    if task_data.status == "Completada":
+    if task_data.status == TaskStatus.COMPLETADA:
         task.completed_at = datetime.now(timezone.utc)
+
+    apply_overdue_state(task)
 
     db.commit()
     db.refresh(task)
