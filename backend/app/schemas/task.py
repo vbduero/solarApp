@@ -5,18 +5,20 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
+from ..models.task import TaskStatus, TaskType
+
 
 class TaskCreate(BaseModel):
     """Schema para crear una tarea."""
     plant_id: int
-    task_type: str  # Regar, Fertilizar, Trasplantar, Podar, Revisar
+    task_type: TaskType  # Regar, Fertilizar, Trasplantar, Podar, Revisar
     description: Optional[str] = None
     due_date: datetime
 
 
 class TaskUpdate(BaseModel):
     """Schema para actualizar una tarea (completar/cancelar)."""
-    status: Optional[str] = None  # Pendiente, Completada, Atrasada
+    status: Optional[TaskStatus] = None  # Pendiente, Completada, Atrasada
     completed_at: Optional[datetime] = None
 
 

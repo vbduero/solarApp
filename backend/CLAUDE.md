@@ -35,10 +35,10 @@ app/
   routers/      un APIRouter por recurso, prefijo /api/<recurso>
   utils/auth.py hash de contraseñas, JWT y la dependencia get_current_user
 ```
-- `routers` → puede usar `models`, `schemas`, `utils`, `database`. `models` y `schemas` **no**
+- `routers` → puede usar `models`, `schemas`, `services`, `utils`, `database`. `models` y `schemas` **no**
   importan routers. `models` no importa `schemas`.
-- La carpeta `services/` existe pero está vacía: la lógica que se repita entre routers va ahí como
-  funciones puras que reciben la `Session`.
+- La lógica que se repita entre routers va en `services/` como funciones que reciben la `Session`
+  (p. ej. `services/task_service.py`).
 - No hay Alembic: las tablas se crean con `Base.metadata.create_all()` al arrancar. Agregar una columna
   a una tabla existente **no** la crea en una BD ya creada; avisa al equipo si un cambio lo requiere.
 
@@ -52,8 +52,8 @@ app/
   `frontend/lib/config/api_constants.dart`.
 
 ## Pruebas
-- Aún no hay pruebas. Ubícalas en `backend/tests/` (`test_<router>.py`) con `pytest` y
-  `fastapi.testclient.TestClient`.
+- Las pruebas están en `backend/tests/` (`test_<router>.py`) con `pytest` y
+  `fastapi.testclient.TestClient`. Los fixtures comunes están en `tests/conftest.py`.
 - No usar la BD real: sobreescribir `get_db` con `app.dependency_overrides` apuntando a SQLite en
   memoria (`sqlite://` + `StaticPool`) y `get_current_user` con un usuario de prueba.
 
@@ -63,7 +63,9 @@ app/
 - `routers/hardware.py` usa `requests` y `google.genai`, que no están en `requirements.txt`, y tiene
   la IP de la Raspberry fija en `URL_RASPBERRY`. Requiere hardware real: no lo toques ni lo
   ejecutes en pruebas.
-- `Task.days_overdue` y el estado `Atrasada` no se calculan en ningún lado (se guardan como vienen).
+- `Task.days_overdue` y el estado `Atrasada` se calculan en `services/task_service.py` con el día de
+  Colombia (UTC-5 fijo), solo en `GET /api/tasks/` y `PATCH /api/tasks/{id}`. `POST` devuelve `Pendiente`
+  y 0 aunque la fecha ya haya pasado, hasta el siguiente GET.
 - `error.txt` y `../analyze_output.txt` son salidas de consola viejas, no documentación.
 
 ## No hacer
