@@ -216,7 +216,7 @@ class _TasksTabState extends State<TasksTab> {
                 final task = tasks[index];
                 return TaskCard(
                   task: task,
-                  onComplete: () => provider.completeTask(task.id),
+                  onComplete: () => _handleComplete(provider, task.id),
                   onTap: () {
                     // Navegar a la planta asociada
                   },
@@ -225,6 +225,20 @@ class _TasksTabState extends State<TasksTab> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _handleComplete(TaskProvider provider, int taskId) async {
+    final completed = await provider.completeTask(taskId);
+    if (!mounted || completed) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('No se pudo completar la tarea. Intenta de nuevo.'),
+        backgroundColor: SolarColors.error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }

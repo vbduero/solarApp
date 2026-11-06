@@ -4,6 +4,15 @@
 
 /// Modelo que representa una tarea de cuidado de planta
 class TaskModel {
+  /// Tipos de tarea que acepta el backend (TaskType)
+  static const List<String> taskTypes = [
+    'Regar',
+    'Fertilizar',
+    'Trasplantar',
+    'Podar',
+    'Revisar',
+  ];
+
   final int id;
   final int plantId;
   final String? plantName;
