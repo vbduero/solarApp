@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../models/plant_model.dart';
 import '../models/sensor_data_model.dart';
+import '../models/sensor_reading_model.dart';
 import '../services/api_service.dart';
 import '../config/api_constants.dart';
 
@@ -16,6 +17,16 @@ class PlantProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   bool _isDemoMode = false;
+
+  List<SensorReadingModel> _sensorHistory = [];
+  bool _isHistoryLoading = false;
+  String? _historyError;
+  int _historyRequestId = 0;
+
+  /// Historial en orden cronológico ascendente
+  List<SensorReadingModel> get sensorHistory => _sensorHistory;
+  bool get isHistoryLoading => _isHistoryLoading;
+  String? get historyError => _historyError;
 
   List<PlantModel> get plants => _plants;
   PlantModel? get selectedPlant => _selectedPlant;
@@ -126,7 +137,8 @@ class PlantProvider extends ChangeNotifier {
             orElse: () => _plants.first,
           );
           num temp = hardwareData['temperatura'] ?? 26.0;
-          num humAire = hardwareData['humedad_aire'] ?? hardwareData['humedad'] ?? 50.0;
+          num humAire =
+              hardwareData['humedad_aire'] ?? hardwareData['humedad'] ?? 50.0;
           num humSuelo = hardwareData['humedad_suelo'] ?? humAire;
           bool ledOn = hardwareData['led_encendido'] ?? false;
 
@@ -151,11 +163,14 @@ class PlantProvider extends ChangeNotifier {
             plantName: plant.commonName,
             temperature: temp.toDouble(),
             airHumidity: humAire.toDouble(),
-            soilHumidity: humSuelo.toDouble(), // Humedad real de suelo del ESP8266
+            soilHumidity: humSuelo
+                .toDouble(), // Humedad real de suelo del ESP8266
             lightLevel: 85.0, // Valor preestablecido para el UI
             solarVoltage: 12.4,
             batteryLevel: 98.0,
-            pumpActive: ledOn ? 1 : 0, // 1 si el LED del circuito está prendido (tierra seca)
+            pumpActive: ledOn
+                ? 1
+                : 0, // 1 si el LED del circuito está prendido (tierra seca)
             healthStatus: status,
             healthScore: score,
             recordedAt: DateTime.now(),
@@ -181,6 +196,44 @@ class PlantProvider extends ChangeNotifier {
       _currentSensorData = SensorDataModel.demo(plantId, plant.commonName);
     }
     notifyListeners();
+  }
+
+  /// Cargar el historial de lecturas de una planta (para Estadísticas).
+  /// Sin datos demo: si falla, deja la lista vacía y un mensaje de error.
+  Future<bool> loadSensorHistory(int plantId, {required int hours}) async {
+    final requestId = ++_historyRequestId;
+    _sensorHistory = [];
+    _historyError = null;
+    _isHistoryLoading = true;
+    notifyListeners();
+
+    try {
+      final data = await ApiService.get(
+        '${ApiConstants.sensorsHistory}/$plantId',
+        queryParams: {'hours': '$hours', 'limit': '200'},
+      );
+      final readings =
+          (data as List)
+              .map(
+                (r) => SensorReadingModel.fromJson(r as Map<String, dynamic>),
+              )
+              .toList()
+            ..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
+      // Ya se lanzó otra carga: esta respuesta es vieja
+      if (requestId != _historyRequestId) return true;
+      _sensorHistory = readings;
+      _isHistoryLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('Error al cargar el historial: $e');
+      if (requestId != _historyRequestId) return false;
+      _sensorHistory = [];
+      _historyError = 'No se pudieron cargar las estadísticas.';
+      _isHistoryLoading = false;
+      notifyListeners();
+      return false;
+    }
   }
 
   /// Activar riego remoto

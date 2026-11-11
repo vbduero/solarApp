@@ -3,7 +3,6 @@
 # ============================================================
 import secrets
 from typing import List, Optional
-from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -15,6 +14,7 @@ from ..models.sensor_data import SensorData
 from ..schemas.sensor_data import SensorDataCreate, SensorDataResponse, SensorLatestResponse
 from ..utils.auth import get_current_user
 from ..config import get_settings
+from ..services import sensor_service
 
 router = APIRouter(prefix="/api/sensors", tags=["Sensores"])
 
@@ -116,8 +116,8 @@ async def get_latest_sensors(
 @router.get("/history/{plant_id}", response_model=List[SensorDataResponse])
 async def get_sensor_history(
     plant_id: int,
-    hours: int = Query(24, description="Horas de historial"),
-    limit: int = Query(100, description="Máximo de registros"),
+    hours: int = Query(24, ge=1, le=720, description="Horas de historial"),
+    limit: int = Query(100, ge=1, le=500, description="Máximo de registros"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -133,12 +133,7 @@ async def get_sensor_history(
     if not plant:
         raise HTTPException(status_code=404, detail="Planta no encontrada")
 
-    since = datetime.now(timezone.utc) - timedelta(hours=hours)
-
-    records = db.query(SensorData).filter(
-        SensorData.plant_id == plant_id,
-        SensorData.recorded_at >= since,
-    ).order_by(desc(SensorData.recorded_at)).limit(limit).all()
+    records = sensor_service.get_history(db, plant_id, hours, limit)
 
     return [SensorDataResponse.model_validate(r) for r in records]
 
