@@ -12,6 +12,7 @@ import '../../providers/plant_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/sensor_data_model.dart';
 import '../../widgets/animated_plant.dart';
+import '../../widgets/create_task_sheet.dart';
 import '../../widgets/weather_bar.dart';
 import '../../widgets/sensor_card.dart';
 
@@ -98,6 +99,20 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _handleCreateTask(int plantId) async {
+    final taskType = await showCreateTaskSheet(context, plantId: plantId);
+    if (!mounted || taskType == null) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Tarea programada: $taskType'),
+        backgroundColor: SolarColors.primary,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
   }
 
   @override
@@ -410,24 +425,38 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
   Widget _buildActionButtons(plant, SensorDataModel data) {
     final needsWater = data.needsWater;
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    return Column(
       children: [
-        // Botón Info
-        _buildCircleButton(
-          icon: Icons.search,
-          label: 'Info',
-          color: SolarColors.primaryDark,
-          onTap: () => Navigator.pushNamed(context, '/plant-info'),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            // Botón Info
+            _buildCircleButton(
+              icon: Icons.search,
+              label: 'Info',
+              color: SolarColors.primaryDark,
+              onTap: () => Navigator.pushNamed(context, '/plant-info'),
+            ),
+            // Botón Regar
+            _buildCircleButton(
+              icon: Icons.water_drop_outlined,
+              label: 'Regar',
+              color: needsWater ? SolarColors.error : SolarColors.primaryDark,
+              isHighlighted: needsWater,
+              onTap: _isWatering ? null : _handleWatering,
+              isLoading: _isWatering,
+            ),
+          ],
         ),
-        // Botón Regar
-        _buildCircleButton(
-          icon: Icons.water_drop_outlined,
-          label: 'Regar',
-          color: needsWater ? SolarColors.error : SolarColors.primaryDark,
-          isHighlighted: needsWater,
-          onTap: _isWatering ? null : _handleWatering,
-          isLoading: _isWatering,
+        const SizedBox(height: 24),
+        // Botón Programar tarea
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () => _handleCreateTask(plant.id),
+            icon: const Icon(Icons.event_available_outlined),
+            label: const Text('Programar tarea'),
+          ),
         ),
       ],
     );
