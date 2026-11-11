@@ -31,3 +31,4 @@ google-genai==1.72.0
 # --- Pruebas ---
 pytest==8.3.3
 httpx==0.28.1  # lo requiere el TestClient de FastAPI
+pytest-cov==7.1.0
