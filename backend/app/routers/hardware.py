@@ -4,23 +4,27 @@
 # Incluye: Sensores ESP8266 (DHT11, Humedad suelo), Cámara PC, y Diagnóstico IA con Gemini
 # ============================================================
 import base64
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from google import genai
+from sqlalchemy.orm import Session
 from ..config import get_settings
+from ..database import get_db
+from ..services.hardware_service import get_device_plant, save_diagnosis
 from ..utils.hardware_helper import obtener_datos_actuales, capturar_foto_webcam
 
 router = APIRouter(prefix="/api/hardware", tags=["Hardware ESP8266 & Webcam"])
 
 
 @router.get("/clima-actual")
-def obtener_clima():
+def obtener_clima(db: Session = Depends(get_db)):
     """
     Flutter llama a este endpoint para obtener los datos
     del ESP8266 por puerto serial en tiempo real.
     """
     datos = obtener_datos_actuales()
-    
+    plant = get_device_plant(db, get_settings().ESP8266_PLANT_ID)
+
     # Mostrar en terminal para verificación
     print(f"--- [HARDWARE ESP8266 SERIAL] ---")
     print(f"Conexión: {datos['status_conexion']}")
@@ -32,6 +36,8 @@ def obtener_clima():
     
     return {
         "estado_conexion": datos["status_conexion"],
+        # Planta donde está instalado el ESP8266: las lecturas son solo de ella
+        "plant_id": plant.id if plant else None,
         "temperatura": datos["temperatura"],
         "humedad": datos["humedad_aire"],  # Compatibilidad
         "humedad_aire": datos["humedad_aire"],
@@ -57,7 +63,7 @@ def obtener_foto():
 
 
 @router.get("/diagnostico-ia")
-def diagnostico_ia():
+def diagnostico_ia(db: Session = Depends(get_db)):
     """
     🧠 DIAGNÓSTICO CON INTELIGENCIA ARTIFICIAL REAL
     1. Captura la imagen en vivo usando la webcam del computador
@@ -177,11 +183,29 @@ def diagnostico_ia():
                 # --- Paso 4: Procesar la respuesta de Gemini ---
                 texto_analisis = response.text
 
+                # Guardar el diagnóstico en el historial de la planta del ESP8266.
+                # Si falla el guardado, igual se devuelve el diagnóstico al usuario.
+                diagnosis_id = None
+                plant_id = None
+                try:
+                    plant = get_device_plant(db, settings.ESP8266_PLANT_ID)
+                    if plant:
+                        guardado = save_diagnosis(db, plant, texto_analisis, imagen_bytes)
+                        diagnosis_id = guardado.id
+                        plant_id = plant.id
+                    else:
+                        print("[HARDWARE] Diagnóstico no guardado: no se encontró la planta del ESP8266.")
+                except Exception as save_error:
+                    db.rollback()
+                    print(f"[HARDWARE] Error al guardar el diagnóstico en BD: {save_error}")
+
                 return {
                     "status": "success",
                     "modelo_ia": f"Google {modelo} (Visión)",
                     "diagnostico": texto_analisis,
-                    "url_imagen": "/static/ultimo_diagnostico.jpg"
+                    "url_imagen": "/static/ultimo_diagnostico.jpg",
+                    "diagnosis_id": diagnosis_id,
+                    "plant_id": plant_id,
                 }
             except Exception as model_error:
                 ultimo_error = model_error

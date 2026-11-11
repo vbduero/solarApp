@@ -114,10 +114,12 @@ class PlantProvider extends ChangeNotifier {
       // 1. INTENTO DE CONEXIÓN CON HARDWARE REAL (ESP8266 Serial)
       try {
         final hardwareData = await ApiService.get('/api/hardware/clima-actual');
-        // Solo usar el hardware si el ESP8266 está realmente conectado; el
-        // backend devuelve valores por defecto cuando no lo está.
+        // Solo usar el hardware si el ESP8266 está realmente conectado (el
+        // backend devuelve valores por defecto cuando no lo está) y si está
+        // instalado en esta planta; las demás usan sus lecturas guardadas.
         if (hardwareData != null &&
             hardwareData['estado_conexion'] == 'En línea' &&
+            hardwareData['plant_id'] == plantId &&
             hardwareData['temperatura'] != null) {
           final plant = _plants.firstWhere(
             (p) => p.id == plantId,

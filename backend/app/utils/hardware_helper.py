@@ -9,8 +9,9 @@ import serial.tools.list_ports
 import cv2
 from datetime import datetime, timezone
 from ..database import SessionLocal
-from ..models.plant import Plant
+from ..config import get_settings
 from ..models.sensor_data import SensorData
+from ..services.hardware_service import get_device_plant
 
 # Variables globales para almacenar los últimos datos leídos del ESP8266
 LATEST_DATA = {
@@ -258,10 +259,10 @@ def _guardar_datos_en_db():
     """Inserta la lectura actual en la base de datos de PostgreSQL."""
     db = SessionLocal()
     try:
-        # Obtener la primera planta disponible en el sistema
-        plant = db.query(Plant).first()
+        # Planta donde está instalado el ESP8266 (ESP8266_PLANT_ID en .env)
+        plant = get_device_plant(db, get_settings().ESP8266_PLANT_ID)
         if not plant:
-            print("[HARDWARE DB] No hay ninguna planta registrada en la base de datos. Saltando guardado.")
+            print("[HARDWARE DB] No se encontró la planta del ESP8266 (revisa ESP8266_PLANT_ID). Saltando guardado.")
             return
             
         with _lock:

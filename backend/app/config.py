@@ -3,6 +3,7 @@
 # ============================================================
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+from typing import Optional
 
 
 class Settings(BaseSettings):
@@ -35,6 +36,9 @@ class Settings(BaseSettings):
     # --- ESP8266 Serial ---
     SERIAL_PORT: str = "COM3"
     SERIAL_BAUDRATE: int = 115200
+    # Id de la planta donde está instalado el ESP8266. Sin valor se usa la
+    # planta activa más antigua.
+    ESP8266_PLANT_ID: Optional[int] = None
 
     # --- Google Gemini (IA de Visión Computacional) ---
     # Obtén tu clave GRATIS en: https://aistudio.google.com/apikey

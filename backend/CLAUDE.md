@@ -62,6 +62,9 @@ app/
 - `routers/hardware.py` y `utils/hardware_helper.py` leen un ESP8266 por puerto serial
   (`SERIAL_PORT` en `.env`), capturan la webcam del PC y llaman a Google Gemini. Requieren hardware
   real: no los ejecutes en pruebas. El firmware está en `../esp8266_maceta_inteligente/`.
+- Las lecturas del ESP8266 y los diagnósticos de IA se guardan en una sola planta: la de
+  `ESP8266_PLANT_ID` (en `.env`) o, si no se define, la planta activa más antigua. La lógica está en
+  `services/hardware_service.py`, que sí se puede probar sin hardware.
 - `Task.days_overdue` y el estado `Atrasada` se calculan en `services/task_service.py` con el día de
   Colombia (UTC-5 fijo), solo en `GET /api/tasks/` y `PATCH /api/tasks/{id}`. `POST` devuelve `Pendiente`
   y 0 aunque la fecha ya haya pasado, hasta el siguiente GET.
