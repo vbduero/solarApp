@@ -32,10 +32,10 @@ def seed_database():
     try:
         # Verificar si ya hay datos
         if db.query(User).first():
-            print("⚠️  La base de datos ya tiene datos. Saltando seed.")
+            print("[INFO] La base de datos ya tiene datos. Saltando seed.")
             return
 
-        print("🌱 Insertando datos de demostración para Solar-Grow...")
+        print("[INFO] Insertando datos de demostración para Solar-Grow...")
 
         # === USUARIO DE DEMOSTRACIÓN ===
         user = User(
@@ -262,13 +262,13 @@ def seed_database():
         db.add(diagnosis)
 
         db.commit()
-        print("✅ Datos de demostración insertados exitosamente!")
+        print("[INFO] Datos de demostración insertados exitosamente!")
         print(f"   - 1 usuario (demo@solargrow.com / solar123)")
         print(f"   - {len(plants)} plantas")
         print(f"   - {48 * len(plants)} registros de sensores")
         print(f"   - {len(tasks_data)} tareas")
         print(f"   - {len(recs_data)} recomendaciones")
-        print(f"   - 1 diagnóstico IA")
+        print(f"   - 1 diagnostico IA")
 
     except Exception as e:
         db.rollback()

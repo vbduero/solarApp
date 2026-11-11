@@ -9,7 +9,6 @@ Autenticación JWT (python-jose + passlib/bcrypt). Pydantic v2 para validación.
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-pip install "psycopg[binary]" requests google-genai   # faltan en requirements.txt (ver Trampas)
 
 # Base de datos (una vez): ejecutar ..\database\init.sql en PostgreSQL y luego datos demo
 python seed_data.py            # usuario demo: demo@solargrow.com / solar123
@@ -18,7 +17,6 @@ python seed_data.py            # usuario demo: demo@solargrow.com / solar123
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # Pruebas
-pip install pytest
 python -m pytest -q
 ```
 Siempre activa el `venv` antes de ejecutar algo. Las rutas relativas (`static/images`) asumen que el
@@ -58,11 +56,15 @@ app/
   memoria (`sqlite://` + `StaticPool`) y `get_current_user` con un usuario de prueba.
 
 ## Trampas conocidas
-- `DATABASE_URL` usa el driver `postgresql+psycopg` (psycopg 3) pero `requirements.txt` trae
-  `psycopg2-binary`. Si agregas dependencias, añádelas a `requirements.txt` con versión fija.
-- `routers/hardware.py` usa `requests` y `google.genai`, que no están en `requirements.txt`, y tiene
-  la IP de la Raspberry fija en `URL_RASPBERRY`. Requiere hardware real: no lo toques ni lo
-  ejecutes en pruebas.
+- `DATABASE_URL` usa el driver `postgresql+psycopg` (psycopg 3). Si agregas dependencias, añádelas a
+  `requirements.txt` con versión fija. `bcrypt` está fijado en 3.2.0 porque `passlib` 1.7.4 falla
+  con bcrypt 4 o superior.
+- `routers/hardware.py` y `utils/hardware_helper.py` leen un ESP8266 por puerto serial
+  (`SERIAL_PORT` en `.env`), capturan la webcam del PC y llaman a Google Gemini. Requieren hardware
+  real: no los ejecutes en pruebas. El firmware está en `../esp8266_maceta_inteligente/`.
+- Las lecturas del ESP8266 y los diagnósticos de IA se guardan en una sola planta: la de
+  `ESP8266_PLANT_ID` (en `.env`) o, si no se define, la planta activa más antigua. La lógica está en
+  `services/hardware_service.py`, que sí se puede probar sin hardware.
 - `Task.days_overdue` y el estado `Atrasada` se calculan en `services/task_service.py` con el día de
   Colombia (UTC-5 fijo), solo en `GET /api/tasks/` y `PATCH /api/tasks/{id}`. `POST` devuelve `Pendiente`
   y 0 aunque la fecha ya haya pasado, hasta el siguiente GET.

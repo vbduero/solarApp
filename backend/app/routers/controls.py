@@ -11,6 +11,7 @@ from ..models.plant import Plant
 from ..schemas.recommendation import WaterControlRequest, WaterControlResponse
 from ..utils.auth import get_current_user
 from ..config import get_settings
+from ..utils.hardware_helper import enviar_comando_serial
 
 router = APIRouter(prefix="/api/controls", tags=["Control Remoto"])
 
@@ -45,23 +46,28 @@ async def activate_watering(
         "user_id": current_user.id,
     }
 
+    # Enviar comando por puerto serial al ESP8266 NodeMCU
     try:
-        # Intentar enviar por MQTT
-        # En producción, esto se conecta al broker MQTT
-        # Por ahora, simulamos el envío exitoso
-        # mqtt_client.publish(settings.MQTT_TOPIC_CONTROL, json.dumps(command))
-
-        return WaterControlResponse(
-            success=True,
-            message=f"Riego activado para {plant.common_name} por {request.duration_seconds} segundos",
-            plant_id=request.plant_id,
-            duration_seconds=request.duration_seconds,
-        )
+        enviado = enviar_comando_serial(f"WATER:{request.duration_seconds}")
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"Error al enviar comando de riego: {str(e)}",
         )
+
+    if not enviado:
+        raise HTTPException(
+            status_code=503,
+            detail="No se pudo activar el riego: el ESP8266 no está conectado "
+                   "al puerto serial del servidor.",
+        )
+
+    return WaterControlResponse(
+        success=True,
+        message=f"Riego activado para {plant.common_name} por {request.duration_seconds} segundos",
+        plant_id=request.plant_id,
+        duration_seconds=request.duration_seconds,
+    )
 
 
 @router.post("/stop-water")

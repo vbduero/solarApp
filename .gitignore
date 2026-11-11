@@ -7,3 +7,7 @@ __pycache__/
 .pytest_cache/
 .env
 *.pyc
+
+# Fotos generadas por el diagnóstico de IA (webcam)
+backend/static/ultimo_diagnostico.jpg
+backend/static/diagnosticos/
