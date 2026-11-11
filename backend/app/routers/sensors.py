@@ -1,9 +1,10 @@
 # ============================================================
 # Solar-Grow - Router de Sensores
 # ============================================================
+import secrets
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
@@ -13,6 +14,7 @@ from ..models.plant import Plant
 from ..models.sensor_data import SensorData
 from ..schemas.sensor_data import SensorDataCreate, SensorDataResponse, SensorLatestResponse
 from ..utils.auth import get_current_user
+from ..config import get_settings
 
 router = APIRouter(prefix="/api/sensors", tags=["Sensores"])
 
@@ -141,16 +143,36 @@ async def get_sensor_history(
     return [SensorDataResponse.model_validate(r) for r in records]
 
 
+def verify_device_key(x_device_key: Optional[str] = Header(default=None)) -> None:
+    """Comprueba la clave del dispositivo (cabecera X-Device-Key).
+
+    La clave se configura en DEVICE_API_KEY (backend/.env). Si no está
+    configurada, el endpoint queda deshabilitado.
+    """
+    expected_key = get_settings().DEVICE_API_KEY
+    if not expected_key:
+        raise HTTPException(
+            status_code=503,
+            detail="Recepción de lecturas deshabilitada: falta configurar DEVICE_API_KEY",
+        )
+    if not x_device_key or not secrets.compare_digest(
+        x_device_key.encode("utf-8"), expected_key.encode("utf-8")
+    ):
+        raise HTTPException(status_code=401, detail="Clave de dispositivo inválida")
+
+
 @router.post("/", response_model=SensorDataResponse)
 async def create_sensor_data(
     data: SensorDataCreate,
     db: Session = Depends(get_db),
+    _: None = Depends(verify_device_key),
 ):
     """Recibir datos de sensores del ESP32 o Raspberry Pi.
     
     Este endpoint es llamado por el hardware del sistema
     para registrar nuevas lecturas de sensores.
-    No requiere autenticación de usuario (usa API key del dispositivo).
+    No requiere autenticación de usuario: usa la clave del dispositivo
+    en la cabecera X-Device-Key.
     """
     # Verificar que la planta existe
     plant = db.query(Plant).filter(Plant.id == data.plant_id).first()

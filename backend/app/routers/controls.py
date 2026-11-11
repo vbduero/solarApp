@@ -85,12 +85,21 @@ async def stop_watering(
     if not plant:
         raise HTTPException(status_code=404, detail="Planta no encontrada")
 
-    command = {
-        "action": "stop_water",
-        "plant_id": request.plant_id,
-    }
+    # Enviar el comando STOP por puerto serial al ESP8266 NodeMCU
+    try:
+        enviado = enviar_comando_serial("STOP")
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al enviar comando para detener el riego: {str(e)}",
+        )
 
-    # mqtt_client.publish(settings.MQTT_TOPIC_CONTROL, json.dumps(command))
+    if not enviado:
+        raise HTTPException(
+            status_code=503,
+            detail="No se pudo detener el riego: el ESP8266 no está conectado "
+                   "al puerto serial del servidor.",
+        )
 
     return {"success": True, "message": f"Riego detenido para {plant.common_name}"}
 

@@ -10,6 +10,8 @@ from google import genai
 from sqlalchemy.orm import Session
 from ..config import get_settings
 from ..database import get_db
+from ..models.user import User
+from ..utils.auth import get_current_user
 from ..services.hardware_service import get_device_plant, save_diagnosis
 from ..utils.hardware_helper import obtener_datos_actuales, capturar_foto_webcam
 
@@ -17,7 +19,10 @@ router = APIRouter(prefix="/api/hardware", tags=["Hardware ESP8266 & Webcam"])
 
 
 @router.get("/clima-actual")
-def obtener_clima(db: Session = Depends(get_db)):
+def obtener_clima(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """
     Flutter llama a este endpoint para obtener los datos
     del ESP8266 por puerto serial en tiempo real.
@@ -48,7 +53,7 @@ def obtener_clima(db: Session = Depends(get_db)):
 
 
 @router.get("/vista-cultivo")
-def obtener_foto():
+def obtener_foto(current_user: User = Depends(get_current_user)):
     """
     Captura una foto de la webcam del computador y la envía a Flutter.
     """
@@ -63,7 +68,10 @@ def obtener_foto():
 
 
 @router.get("/diagnostico-ia")
-def diagnostico_ia(db: Session = Depends(get_db)):
+def diagnostico_ia(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """
     🧠 DIAGNÓSTICO CON INTELIGENCIA ARTIFICIAL REAL
     1. Captura la imagen en vivo usando la webcam del computador

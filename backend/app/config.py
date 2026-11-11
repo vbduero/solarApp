@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     # planta activa más antigua.
     ESP8266_PLANT_ID: Optional[int] = None
 
+    # --- Dispositivos que envían lecturas por HTTP (POST /api/sensors/) ---
+    # Clave que el dispositivo manda en la cabecera X-Device-Key. Se define en
+    # backend/.env; sin valor, el endpoint queda deshabilitado.
+    DEVICE_API_KEY: Optional[str] = None
+
     # --- Google Gemini (IA de Visión Computacional) ---
     # Obtén tu clave GRATIS en: https://aistudio.google.com/apikey
     GEMINI_API_KEY: str = ""

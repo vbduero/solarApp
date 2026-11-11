@@ -1,7 +1,7 @@
 # ============================================================
 # Solar-Grow - Schemas de Recomendaciones e IA
 # ============================================================
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
@@ -40,7 +40,9 @@ class AIDiagnosisResponse(BaseModel):
 class WaterControlRequest(BaseModel):
     """Schema para solicitar riego remoto."""
     plant_id: int
-    duration_seconds: int = 10  # Duración del riego en segundos
+    # Duración del riego en segundos. El máximo coincide con MAX_RIEGO_MANUAL_S
+    # del firmware del ESP8266.
+    duration_seconds: int = Field(default=10, ge=1, le=60)
 
 
 class WaterControlResponse(BaseModel):
