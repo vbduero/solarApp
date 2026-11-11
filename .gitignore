@@ -5,6 +5,8 @@ frontend/build/
 backend/__pycache__/
 __pycache__/
 .pytest_cache/
+.coverage
+htmlcov/
 .env
 *.pyc
 

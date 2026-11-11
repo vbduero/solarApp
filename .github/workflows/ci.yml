@@ -1,0 +1,50 @@
+# Integración continua de Solar-Grow.
+# Corre en cada pull request hacia main: es la puerta que debe pasar el
+# código (escrito por personas o por la IA) antes de fusionarse.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend (pytest + cobertura)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+      - name: Pruebas con cobertura (umbral en .coveragerc)
+        run: python -m pytest -q --cov --cov-config=.coveragerc --cov-report=term-missing
+
+  frontend:
+    name: Frontend (analyze + test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.6"
+          channel: stable
+          cache: true
+      - name: Instalar dependencias
+        run: flutter pub get
+      # Los avisos previos no bloquean; los errores sí.
+      - name: Analizar
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Pruebas
+        run: flutter test

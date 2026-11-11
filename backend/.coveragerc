@@ -1,0 +1,10 @@
+# Cobertura del backend. El umbral es un piso: una spec no puede bajarlo.
+# hardware_helper.py y main.py necesitan el ESP8266, la webcam o PostgreSQL
+# reales, por eso el total es bajo aunque services/ esté al 100 %.
+[run]
+source = app
+
+[report]
+fail_under = 60
+show_missing = True
+skip_covered = True

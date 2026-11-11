@@ -16,8 +16,8 @@ python seed_data.py            # usuario demo: demo@solargrow.com / solar123
 # Ejecutar el API (docs en http://localhost:8000/docs)
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
-# Pruebas
-python -m pytest -q
+# Pruebas (con cobertura; el umbral está en .coveragerc y lo exige la CI)
+python -m pytest -q --cov --cov-config=.coveragerc
 ```
 Siempre activa el `venv` antes de ejecutar algo. Las rutas relativas (`static/images`) asumen que el
 proceso se lanza desde `backend\`.
