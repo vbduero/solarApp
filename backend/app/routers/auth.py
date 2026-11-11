@@ -9,6 +9,7 @@ import shutil
 
 from ..database import get_db
 from ..models.user import User
+from ..services.upload_service import save_uploaded_image
 from ..schemas.user import UserCreate, UserLogin, UserResponse, UserUpdate, Token
 from ..utils.auth import hash_password, verify_password, create_access_token, get_current_user
 
@@ -90,12 +91,6 @@ async def upload_avatar(
     current_user: User = Depends(get_current_user)
 ):
     """Sube una foto de perfil y devuelve la URL estática."""
-    os.makedirs("static/avatars", exist_ok=True)
-    ext = file.filename.split(".")[-1] if "." in file.filename else "jpg"
-    filename = f"avatar_{uuid.uuid4().hex[:8]}.{ext}"
-    path = f"static/avatars/{filename}"
-    
-    with open(path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-        
+    # Valida tamaño y formato real antes de guardar
+    path = save_uploaded_image(file, "static/avatars", "avatar")
     return {"avatar_url": f"/{path}"}

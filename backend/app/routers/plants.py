@@ -12,6 +12,7 @@ from ..database import get_db
 from ..models.user import User
 from ..models.plant import Plant
 from ..schemas.plant import PlantCreate, PlantUpdate, PlantResponse, PlantDetailResponse
+from ..services.upload_service import save_uploaded_image
 from ..utils.auth import get_current_user
 
 router = APIRouter(prefix="/api/plants", tags=["Plantas"])
@@ -94,15 +95,8 @@ async def upload_image(
     current_user: User = Depends(get_current_user)
 ):
     """Sube una imagen local de la planta y devuelve la URL estática."""
-    os.makedirs("static/images", exist_ok=True)
-    # Generar un nombre único para evitar colisiones
-    ext = file.filename.split(".")[-1] if "." in file.filename else "jpg"
-    filename = f"plant_{uuid.uuid4().hex[:8]}.{ext}"
-    path = f"static/images/{filename}"
-    
-    with open(path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-        
+    # Valida tamaño y formato real antes de guardar
+    path = save_uploaded_image(file, "static/images", "plant")
     return {"image_url": f"/{path}"}
 
 

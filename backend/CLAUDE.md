@@ -65,6 +65,15 @@ app/
 - Las lecturas del ESP8266 y los diagnósticos de IA se guardan en una sola planta: la de
   `ESP8266_PLANT_ID` (en `.env`) o, si no se define, la planta activa más antigua. La lógica está en
   `services/hardware_service.py`, que sí se puede probar sin hardware.
+- `/api/hardware/*` exige sesión (`get_current_user`). `POST /api/sensors/` no usa sesión sino la
+  cabecera `X-Device-Key`, que debe coincidir con `DEVICE_API_KEY` de `.env`; sin esa variable el
+  endpoint responde 503.
+- El riego acepta entre 1 y 60 segundos (`WaterControlRequest`), igual que `MAX_RIEGO_MANUAL_S` del
+  firmware: si cambias uno, cambia el otro. `stop-water` envía `STOP` por serial.
+- Las imágenes subidas (plantas y avatares) pasan por `services/upload_service.py`: máximo 8 MB y solo
+  JPEG, PNG o WebP, detectados por contenido y no por el nombre del archivo.
+- Para probar routers que tocan hardware, reemplaza `enviar_comando_serial` y
+  `obtener_datos_actuales` con `monkeypatch` (ver `tests/test_seguridad_hardware.py`).
 - `Task.days_overdue` y el estado `Atrasada` se calculan en `services/task_service.py` con el día de
   Colombia (UTC-5 fijo), solo en `GET /api/tasks/` y `PATCH /api/tasks/{id}`. `POST` devuelve `Pendiente`
   y 0 aunque la fecha ya haya pasado, hasta el siguiente GET.
