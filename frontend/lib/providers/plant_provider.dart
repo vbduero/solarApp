@@ -111,37 +111,58 @@ class PlantProvider extends ChangeNotifier {
   /// Cargar datos de sensores de una planta
   Future<void> loadSensorData(int plantId) async {
     try {
-      // 1. INTENTO DE CONEXIÓN CON HARDWARE REAL (Raspberry Pi)
+      // 1. INTENTO DE CONEXIÓN CON HARDWARE REAL (ESP8266 Serial)
       try {
         final hardwareData = await ApiService.get('/api/hardware/clima-actual');
-        if (hardwareData != null && hardwareData['temperatura'] != null) {
+        // Solo usar el hardware si el ESP8266 está realmente conectado; el
+        // backend devuelve valores por defecto cuando no lo está.
+        if (hardwareData != null &&
+            hardwareData['estado_conexion'] == 'En línea' &&
+            hardwareData['temperatura'] != null) {
           final plant = _plants.firstWhere(
             (p) => p.id == plantId,
             orElse: () => _plants.first,
           );
           num temp = hardwareData['temperatura'] ?? 26.0;
-          num hum = hardwareData['humedad'] ?? 50.0;
+          num humAire = hardwareData['humedad_aire'] ?? hardwareData['humedad'] ?? 50.0;
+          num humSuelo = hardwareData['humedad_suelo'] ?? humAire;
+          bool ledOn = hardwareData['led_encendido'] ?? false;
+
+          // Calcular dinámicamente el estado de salud basado en la planta
+          double score = 100.0;
+          String status = 'healthy';
+          if (humSuelo < (plant.minHumidity ?? 25.0)) {
+            double deficit = (plant.minHumidity ?? 25.0) - humSuelo;
+            score -= deficit * 2;
+            status = 'needs_water';
+          }
+          if (temp > (plant.maxTemperature ?? 35.0)) {
+            double excess = temp - (plant.maxTemperature ?? 35.0);
+            score -= excess * 3;
+            if (status == 'healthy') status = 'stressed';
+          }
+          score = score.clamp(0.0, 100.0);
+          if (score < 40.0) status = 'critical';
 
           _currentSensorData = SensorDataModel(
             plantId: plantId,
             plantName: plant.commonName,
             temperature: temp.toDouble(),
-            airHumidity: hum.toDouble(),
-            soilHumidity: hum
-                .toDouble(), // Refleja la humedad real de ambiente en UI por ahora
-            lightLevel: 85.0, // Valor preestablecido para llenar el UI
+            airHumidity: humAire.toDouble(),
+            soilHumidity: humSuelo.toDouble(), // Humedad real de suelo del ESP8266
+            lightLevel: 85.0, // Valor preestablecido para el UI
             solarVoltage: 12.4,
             batteryLevel: 98.0,
-            pumpActive: 0,
-            healthStatus: 'healthy',
-            healthScore: 95.0,
+            pumpActive: ledOn ? 1 : 0, // 1 si el LED del circuito está prendido (tierra seca)
+            healthStatus: status,
+            healthScore: score,
             recordedAt: DateTime.now(),
           );
           notifyListeners();
           return; // Salimos temprano y exitosamente
         }
       } catch (e) {
-        debugPrint('Hardware (RPi) no detectado, usando datos de BDD.');
+        debugPrint('Hardware (ESP8266) no detectado, usando datos de BDD: $e');
       }
 
       // 2. CONEXIÓN NORMAL CON BASE DE DATOS (Si la Raspberry Falla)
@@ -162,6 +183,7 @@ class PlantProvider extends ChangeNotifier {
 
   /// Activar riego remoto
   Future<bool> activateWatering(int plantId, {int durationSeconds = 10}) async {
+    _error = null;
     try {
       await ApiService.post(
         ApiConstants.controlWater,
@@ -170,8 +192,12 @@ class PlantProvider extends ChangeNotifier {
       // Recargar datos de sensores después de regar
       await loadSensorData(plantId);
       return true;
+    } on ApiException catch (e) {
+      _error = e.message;
+      notifyListeners();
+      return false;
     } catch (e) {
-      _error = 'Error al activar el riego';
+      _error = 'No se pudo conectar con el servidor para activar el riego';
       notifyListeners();
       return false;
     }

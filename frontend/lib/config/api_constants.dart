@@ -5,7 +5,7 @@
 /// Constantes para la configuración de la API del backend
 class ApiConstants {
   // URL base del servidor (cambiar en producción)
-  static const String baseUrl = 'http://10.0.2.2:8000'; // Emulador Android
+  static const String baseUrl = 'http://10.97.203.53:8000'; // Emulador Android
   static const String webBaseUrl = 'http://localhost:8000'; // Web
 
   // Endpoints de autenticación

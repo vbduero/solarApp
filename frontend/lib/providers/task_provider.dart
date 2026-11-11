@@ -68,7 +68,7 @@ class TaskProvider extends ChangeNotifier {
   Future<bool> completeTask(int taskId) async {
     try {
       await ApiService.patch(
-        '${ApiConstants.tasks}/$taskId',
+        '${ApiConstants.tasks}$taskId',
         body: {'status': 'Completada'},
       );
       // Actualizar la lista local

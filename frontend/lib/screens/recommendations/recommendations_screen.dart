@@ -61,7 +61,7 @@ class RecommendationsScreen extends StatelessWidget {
         category: 'Diagnóstico IA',
         title: 'Análisis visual completado',
         message:
-            'La cámara de la Raspberry Pi analizó tu Áloe de arena. '
+            'La cámara de tu computador analizó tu Áloe de arena. '
             'Estado general: Bueno (87% confianza). No se detectaron '
             'plagas ni enfermedades. Las hojas presentan color saludable.',
         priority: 'baja',

@@ -52,6 +52,17 @@ app.include_router(controls.router)
 app.include_router(ai.router)
 app.include_router(hardware.router)
 
+# Eventos de inicio/cierre para hardware
+from .utils.hardware_helper import iniciar_lectura_serial, detener_lectura_serial
+
+@app.on_event("startup")
+def startup_event():
+    iniciar_lectura_serial(port=settings.SERIAL_PORT, baudrate=settings.SERIAL_BAUDRATE)
+
+@app.on_event("shutdown")
+def shutdown_event():
+    detener_lectura_serial()
+
 
 @app.get("/", tags=["Root"])
 def root():

@@ -1,77 +1,58 @@
 # ============================================================
-# Solar-Grow - Router de Integración Hardware (Raspberry Pi)
+# Solar-Grow - Router de Integración Hardware (ESP8266 & PC Webcam)
 # ============================================================
-# Incluye: Sensores DHT22, Cámara, y Diagnóstico IA con Gemini
+# Incluye: Sensores ESP8266 (DHT11, Humedad suelo), Cámara PC, y Diagnóstico IA con Gemini
 # ============================================================
 import base64
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
-import requests
 from google import genai
 from ..config import get_settings
+from ..utils.hardware_helper import obtener_datos_actuales, capturar_foto_webcam
 
-router = APIRouter(prefix="/api/hardware", tags=["Hardware Raspberry Pi"])
-
-# IMPORTANTE
-URL_RASPBERRY = "http://192.168.1.9:8000"
+router = APIRouter(prefix="/api/hardware", tags=["Hardware ESP8266 & Webcam"])
 
 
 @router.get("/clima-actual")
 def obtener_clima():
     """
-    Flutter llama a este endpoint y nosotros (el backend)
-    vamos rápidamente a la Raspberry a sacar los datos en tiempo real.
+    Flutter llama a este endpoint para obtener los datos
+    del ESP8266 por puerto serial en tiempo real.
     """
-    try:
-        # Timeout para no bloquear la app si la Raspberry no está
-        res = requests.get(f"{URL_RASPBERRY}/sensor", timeout=2)
-        datos = res.json()
-        if datos.get("status") == "success":
-            temp = datos.get("temperatura")
-            hum = datos.get("humedad")
-            
-            # Mostrar en terminal para verificación del usuario
-            print(f"--- [HARDWARE RASPBERRY PI] ---")
-            print(f"Temperatura: {temp} °C | Humedad (DHT22): {hum} %")
-            print(f"-------------------------------")
-            
-            return {
-                "estado_conexion": "En línea",
-                "temperatura": temp,
-                "humedad": hum
-            }
-        else:
-            raise HTTPException(
-                status_code=503,
-                detail="Sensor ocupado en la Raspberry: " + datos.get("mensaje", "")
-            )
-    except Exception as e:
-        raise HTTPException(
-            status_code=504,
-            detail=f"Sin conexión con Raspberry Pi en {URL_RASPBERRY}. Verifica que esté encendida."
-        )
+    datos = obtener_datos_actuales()
+    
+    # Mostrar en terminal para verificación
+    print(f"--- [HARDWARE ESP8266 SERIAL] ---")
+    print(f"Conexión: {datos['status_conexion']}")
+    print(f"Temperatura: {datos['temperatura']} °C")
+    print(f"Humedad Aire: {datos['humedad_aire']} %")
+    print(f"Humedad Suelo: {datos['humedad_suelo']}% (Raw: {datos['humedad_suelo_raw']})")
+    print(f"LED (Bomba): {'ENCENDIDO' if datos['led_encendido'] else 'APAGADO'}")
+    print(f"---------------------------------")
+    
+    return {
+        "estado_conexion": datos["status_conexion"],
+        "temperatura": datos["temperatura"],
+        "humedad": datos["humedad_aire"],  # Compatibilidad
+        "humedad_aire": datos["humedad_aire"],
+        "humedad_suelo": datos["humedad_suelo"],
+        "humedad_suelo_raw": datos["humedad_suelo_raw"],
+        "led_encendido": datos["led_encendido"]
+    }
 
 
 @router.get("/vista-cultivo")
 def obtener_foto():
     """
-    El backend descarga la foto de la Raspberry y se la reenvía
-    automáticamente a Flutter como si fuera una imagen local.
+    Captura una foto de la webcam del computador y la envía a Flutter.
     """
     try:
-        res = requests.get(f"{URL_RASPBERRY}/camara", timeout=3)
-        if res.status_code == 200:
-            # Reenviamos los bytes directitos de la imagen a la App Móvil
-            return Response(content=res.content, media_type="image/jpeg")
-        else:
-            raise HTTPException(
-                status_code=500,
-                detail="Fallo tomando foto en la estación"
-            )
+        foto_bytes = capturar_foto_webcam()
+        return Response(content=foto_bytes, media_type="image/jpeg")
     except Exception as e:
         raise HTTPException(
-            status_code=504,
-            detail="Error de conexión con la cámara"
+            status_code=500,
+            detail=f"Error al capturar foto de la webcam: {str(e)}"
         )
 
 
@@ -79,24 +60,29 @@ def obtener_foto():
 def diagnostico_ia():
     """
     🧠 DIAGNÓSTICO CON INTELIGENCIA ARTIFICIAL REAL
-    1. Captura la imagen en vivo de la Raspberry Pi
+    1. Captura la imagen en vivo usando la webcam del computador
     2. La envía a Google Gemini (Visión Computacional)
     3. Gemini analiza plagas, enfermedades, estrés hídrico, etc.
     4. Devuelve el diagnóstico real al frontend
     """
-    # --- Paso 1: Obtener la imagen de la cámara ---
+    # --- Paso 1: Obtener la imagen de la cámara del computador ---
     try:
-        res = requests.get(f"{URL_RASPBERRY}/camara", timeout=5)
-        if res.status_code != 200:
-            raise HTTPException(
-                status_code=500,
-                detail="No se pudo capturar la foto de la cámara."
-            )
-        imagen_bytes = res.content
-    except requests.exceptions.RequestException as e:
+        imagen_bytes = capturar_foto_webcam()
+        
+        # Guardar la imagen capturada para que el frontend la pueda mostrar estáticamente
+        try:
+            import os
+            os.makedirs("static", exist_ok=True)
+            with open("static/ultimo_diagnostico.jpg", "wb") as f:
+                f.write(imagen_bytes)
+            print("[HARDWARE] Foto de diagnóstico guardada en static/ultimo_diagnostico.jpg")
+        except Exception as save_err:
+            print(f"[HARDWARE] Error al guardar la foto en static: {save_err}")
+            
+    except Exception as e:
         raise HTTPException(
-            status_code=504,
-            detail=f"No se pudo conectar con la cámara de la Raspberry Pi: {str(e)}"
+            status_code=500,
+            detail=f"No se pudo capturar la foto de la cámara del computador: {str(e)}"
         )
 
     # --- Paso 2: Verificar API Key ---
@@ -112,8 +98,19 @@ def diagnostico_ia():
     try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
+        # Incluir datos de sensores en tiempo real para un diagnóstico más rico
+        datos_sensor = obtener_datos_actuales()
+        contexto_sensores = f"""
+        DATOS EN TIEMPO REAL DE LOS SENSORES IoT (ESP8266):
+        - Humedad del suelo: {datos_sensor['humedad_suelo']}%
+        - Temperatura ambiente: {datos_sensor['temperatura']}°C
+        - Humedad del aire: {datos_sensor['humedad_aire']}%
+        - Bomba de riego: {'ACTIVA (regando)' if datos_sensor['led_encendido'] else 'Inactiva'}
+        - Estado de conexión: {datos_sensor['status_conexion']}
+        """
+
         # El prompt para la IA
-        prompt = """
+        prompt = f"""
         Eres un experto fitopatólogo e ingeniero agrónomo especializado en 
         diagnóstico visual de cultivos y plantas ornamentales.
         
@@ -121,7 +118,11 @@ def diagnostico_ia():
         inteligente (Solar-Grow) y responde EN ESPAÑOL con el siguiente 
         formato exacto (usa estos encabezados tal cual):
 
+        {contexto_sensores}
+
         ESTADO GENERAL: (Saludable / Estrés leve / Estrés moderado / Crítico)
+        Incluye una evaluación basada tanto en la imagen como en los datos 
+        de los sensores IoT.
         
         PLAGAS DETECTADAS: (Nombre de la plaga o "Ninguna detectada". 
         Si detectas algo, indica el nivel de confianza en porcentaje)
@@ -131,14 +132,17 @@ def diagnostico_ia():
         
         SALUD FOLIAR: (Describe el color, turgencia y aspecto de las hojas)
         
-        ESTRÉS HÍDRICO: (¿Muestra signos de falta o exceso de agua?)
+        ESTRÉS HÍDRICO: (¿Muestra signos de falta o exceso de agua? 
+        Correlaciona con el dato de humedad del suelo: {datos_sensor['humedad_suelo']}%)
         
         RECOMENDACIONES: (Lista 2-3 acciones específicas que el usuario 
-        debe tomar basándose en lo que observas en la imagen)
+        debe tomar basándose en lo que observas en la imagen Y los datos 
+        de los sensores. Por ejemplo, si la humedad del suelo es baja, 
+        recomienda riego. Si la temperatura es alta, recomienda sombra.)
         
         Sé preciso y profesional. Si la imagen no muestra una planta 
         claramente, indica lo que observas y sugiere mejorar el ángulo 
-        de la cámara.
+        de la cámara para que apunte directamente a la planta.
         """
 
         # Creamos el contenido con la imagen en base64
@@ -176,7 +180,8 @@ def diagnostico_ia():
                 return {
                     "status": "success",
                     "modelo_ia": f"Google {modelo} (Visión)",
-                    "diagnostico": texto_analisis
+                    "diagnostico": texto_analisis,
+                    "url_imagen": "/static/ultimo_diagnostico.jpg"
                 }
             except Exception as model_error:
                 ultimo_error = model_error

@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     # --- Raspberry Pi ---
     RASPBERRY_PI_URL: str = "http://192.168.1.100:5000"
 
+    # --- ESP8266 Serial ---
+    SERIAL_PORT: str = "COM3"
+    SERIAL_BAUDRATE: int = 115200
+
     # --- Google Gemini (IA de Visión Computacional) ---
     # Obtén tu clave GRATIS en: https://aistudio.google.com/apikey
     GEMINI_API_KEY: str = ""
