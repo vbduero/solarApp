@@ -12,7 +12,7 @@ from ..config import get_settings
 from ..database import get_db
 from ..models.user import User
 from ..utils.auth import get_current_user
-from ..services.hardware_service import get_device_plant, save_diagnosis
+from ..services.hardware_service import get_device_plant, get_device_plant_for_user, save_diagnosis
 from ..utils.hardware_helper import obtener_datos_actuales, capturar_foto_webcam
 
 router = APIRouter(prefix="/api/hardware", tags=["Hardware ESP8266 & Webcam"])
@@ -196,13 +196,13 @@ def diagnostico_ia(
                 diagnosis_id = None
                 plant_id = None
                 try:
-                    plant = get_device_plant(db, settings.ESP8266_PLANT_ID)
+                    plant = get_device_plant_for_user(db, settings.ESP8266_PLANT_ID, current_user.id)
                     if plant:
                         guardado = save_diagnosis(db, plant, texto_analisis, imagen_bytes)
                         diagnosis_id = guardado.id
                         plant_id = plant.id
                     else:
-                        print("[HARDWARE] Diagnóstico no guardado: no se encontró la planta del ESP8266.")
+                        print("[HARDWARE] Diagnóstico no guardado: no hay planta del ESP8266 que pertenezca al usuario.")
                 except Exception as save_error:
                     db.rollback()
                     print(f"[HARDWARE] Error al guardar el diagnóstico en BD: {save_error}")

@@ -39,6 +39,16 @@ def get_device_plant(db: Session, configured_plant_id: Optional[int] = None) -> 
     return query.order_by(Plant.id.asc()).first()
 
 
+def get_device_plant_for_user(
+    db: Session, configured_plant_id: Optional[int], user_id: int
+) -> Optional[Plant]:
+    """Devuelve la planta del ESP8266 solo si pertenece al usuario; si no, None."""
+    plant = get_device_plant(db, configured_plant_id)
+    if plant is None or plant.user_id != user_id:
+        return None
+    return plant
+
+
 def _normalize(text: str) -> str:
     """Minúsculas y sin tildes, para comparar sin depender de la ortografía."""
     decomposed = unicodedata.normalize("NFD", text.lower())
