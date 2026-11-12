@@ -83,21 +83,13 @@ class SensorDataModel {
     );
   }
 
-  /// Datos por defecto para modo demo / sin conexión
-  factory SensorDataModel.demo(int plantId, String plantName) {
+  /// Lectura vacía: sin valores inventados (planta de ejemplo o sin conexión)
+  factory SensorDataModel.empty(int plantId, String plantName) {
     return SensorDataModel(
       plantId: plantId,
       plantName: plantName,
-      temperature: 26.0,
-      airHumidity: 65.0,
-      soilHumidity: 50.0,
-      lightLevel: 67.0,
-      solarVoltage: 15.5,
-      batteryLevel: 85.0,
       pumpActive: 0,
       healthStatus: 'Sin datos',
-      healthScore: null,
-      recordedAt: DateTime.now(),
     );
   }
 }

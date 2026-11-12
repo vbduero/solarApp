@@ -8,6 +8,7 @@ import '../models/sensor_data_model.dart';
 import '../models/sensor_reading_model.dart';
 import '../services/api_service.dart';
 import '../config/api_constants.dart';
+import '../config/demo_messages.dart';
 
 /// Provider que gestiona las plantas y datos de sensores
 class PlantProvider extends ChangeNotifier {
@@ -16,7 +17,8 @@ class PlantProvider extends ChangeNotifier {
   SensorDataModel? _currentSensorData;
   bool _isLoading = false;
   String? _error;
-  bool _isDemoMode = false;
+  int _plantsRequestId = 0;
+  bool _sensorsUnavailable = false;
 
   List<SensorReadingModel> _sensorHistory = [];
   bool _isHistoryLoading = false;
@@ -39,6 +41,12 @@ class PlantProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
+  /// Hay plantas de ejemplo en la lista (modo demo). Se calcula sobre `plants`.
+  bool get showingDemoPlants => plants.any((p) => p.isDemo);
+
+  /// Las lecturas fallaron (sin conexión, 401 o 500): se muestran vacías.
+  bool get sensorsUnavailable => _sensorsUnavailable;
+
   /// Estado de la bomba según el ESP8266 en línea para esa planta.
   /// `null` significa que no hay dato en vivo (desconectado, otra planta, BDD o demo).
   bool? livePumpOn(int plantId) =>
@@ -46,16 +54,28 @@ class PlantProvider extends ChangeNotifier {
 
   /// Obtener todas las plantas del usuario
   Future<void> loadPlants() async {
+    final requestId = ++_plantsRequestId;
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
       final data = await ApiService.get(ApiConstants.plants);
+      // Respuesta de una sesión o carga anterior: no se aplica
+      if (requestId != _plantsRequestId) return;
       _plants = (data as List).map((p) => PlantModel.fromJson(p)).toList();
-      _isDemoMode = false;
+      // Una planta de ejemplo elegida no sobrevive a la vuelta de la conexión
+      if (_selectedPlant?.isDemo == true) {
+        _selectedPlant = null;
+        _currentSensorData = null;
+        _sensorsUnavailable = false;
+        _livePumpPlantId = null;
+        _livePumpOn = null;
+        _sensorRequestId++;
+      }
     } catch (e) {
-      // Si falla la API, cargar datos de demo
+      if (requestId != _plantsRequestId) return;
+      // Si falla la API, cargar plantas de ejemplo (marcadas isDemo)
       _loadDemoPlants();
     }
 
@@ -127,13 +147,58 @@ class PlantProvider extends ChangeNotifier {
     _selectedPlant = plant;
     _livePumpPlantId = null;
     _livePumpOn = null;
+    _sensorsUnavailable = false;
     notifyListeners();
     await loadSensorData(plant.id);
+  }
+
+  /// Nombre de la planta para una lectura, sin lanzar si la lista está vacía.
+  String _plantNameFor(int plantId) {
+    if (_selectedPlant?.id == plantId) return _selectedPlant!.commonName;
+    for (final p in _plants) {
+      if (p.id == plantId) return p.commonName;
+    }
+    return '';
+  }
+
+  /// Limpia todo el estado al cerrar sesión e invalida las peticiones en vuelo.
+  void clearSession() {
+    _plantsRequestId++;
+    _sensorRequestId++;
+    _historyRequestId++;
+    _plants = [];
+    _selectedPlant = null;
+    _currentSensorData = null;
+    _sensorsUnavailable = false;
+    _livePumpPlantId = null;
+    _livePumpOn = null;
+    _error = null;
+    _sensorHistory = [];
+    _isHistoryLoading = false;
+    _historyError = null;
+    _isLoading = false;
+    notifyListeners();
   }
 
   /// Cargar datos de sensores de una planta
   Future<void> loadSensorData(int plantId) async {
     final requestId = ++_sensorRequestId;
+
+    // Planta de ejemplo: no hay lecturas reales y no se hace ninguna petición
+    if (_selectedPlant != null &&
+        _selectedPlant!.id == plantId &&
+        _selectedPlant!.isDemo) {
+      _currentSensorData = SensorDataModel.empty(
+        plantId,
+        _selectedPlant!.commonName,
+      );
+      _sensorsUnavailable = false;
+      _livePumpPlantId = null;
+      _livePumpOn = null;
+      notifyListeners();
+      return;
+    }
+
     try {
       // 1. INTENTO DE CONEXIÓN CON HARDWARE REAL (ESP8266 Serial)
       try {
@@ -147,25 +212,19 @@ class PlantProvider extends ChangeNotifier {
             hardwareData['estado_conexion'] == 'En línea' &&
             hardwareData['plant_id'] == plantId &&
             hardwareData['temperatura'] != null) {
-          final plant = _plants.firstWhere(
-            (p) => p.id == plantId,
-            orElse: () => _plants.first,
-          );
-          num temp = hardwareData['temperatura'] ?? 26.0;
-          num humAire =
-              hardwareData['humedad_aire'] ?? hardwareData['humedad'] ?? 50.0;
+          final num temp = hardwareData['temperatura'] as num;
+          final num? humAire =
+              (hardwareData['humedad_aire'] ?? hardwareData['humedad']) as num?;
           bool ledOn = hardwareData['led_encendido'] ?? false;
           // La salud la calcula el backend; la app no la recalcula.
 
+          // Luz, voltaje solar y batería no tienen sensor: quedan en null.
           _currentSensorData = SensorDataModel(
             plantId: plantId,
-            plantName: plant.commonName,
+            plantName: _plantNameFor(plantId),
             temperature: temp.toDouble(),
-            airHumidity: humAire.toDouble(),
+            airHumidity: humAire?.toDouble(),
             soilHumidity: (hardwareData['humedad_suelo'] as num?)?.toDouble(),
-            lightLevel: 85.0, // Valor preestablecido para el UI
-            solarVoltage: 12.4,
-            batteryLevel: 98.0,
             pumpActive: ledOn
                 ? 1
                 : 0, // 1 si el LED del circuito está prendido (tierra seca)
@@ -177,6 +236,7 @@ class PlantProvider extends ChangeNotifier {
           );
           _livePumpPlantId = plantId;
           _livePumpOn = ledOn;
+          _sensorsUnavailable = false;
           notifyListeners();
           return; // Salimos temprano y exitosamente
         }
@@ -184,22 +244,23 @@ class PlantProvider extends ChangeNotifier {
         debugPrint('Hardware (ESP8266) no detectado, usando datos de BDD: $e');
       }
 
-      // 2. CONEXIÓN NORMAL CON BASE DE DATOS (Si la Raspberry Falla)
+      // 2. CONEXIÓN NORMAL CON BASE DE DATOS
       final data = await ApiService.get(
         '${ApiConstants.sensorsLatest}/$plantId',
       );
       if (requestId != _sensorRequestId) return;
       _currentSensorData = SensorDataModel.fromJson(data);
+      _sensorsUnavailable = false;
     } catch (e) {
       if (requestId != _sensorRequestId) return;
-      // Datos demo si falla la API
-      final plant = _plants.firstWhere(
-        (p) => p.id == plantId,
-        orElse: () => _plants.first,
+      // Sin datos inventados: lectura vacía y aviso de que no hay conexión
+      _currentSensorData = SensorDataModel.empty(
+        plantId,
+        _plantNameFor(plantId),
       );
-      _currentSensorData = SensorDataModel.demo(plantId, plant.commonName);
+      _sensorsUnavailable = true;
     }
-    // Lectura de base o demo: no es dato en vivo
+    // Lectura de base o vacía: no es dato en vivo
     _livePumpPlantId = null;
     _livePumpOn = null;
     notifyListeners();
@@ -243,8 +304,19 @@ class PlantProvider extends ChangeNotifier {
     }
   }
 
+  /// La planta elegida es de ejemplo y es la que se quiere controlar.
+  bool _isDemoSelected(int plantId) =>
+      _selectedPlant != null &&
+      _selectedPlant!.id == plantId &&
+      _selectedPlant!.isDemo;
+
   /// Activar riego remoto
   Future<bool> activateWatering(int plantId, {int durationSeconds = 10}) async {
+    if (_isDemoSelected(plantId)) {
+      _error = DemoMessages.notAvailable;
+      notifyListeners();
+      return false;
+    }
     _error = null;
     try {
       await ApiService.post(
@@ -268,6 +340,11 @@ class PlantProvider extends ChangeNotifier {
   /// Detener el riego remoto. No recarga sensores: la pantalla espera la
   /// confirmación del ESP8266.
   Future<bool> stopWatering(int plantId) async {
+    if (_isDemoSelected(plantId)) {
+      _error = DemoMessages.notAvailable;
+      notifyListeners();
+      return false;
+    }
     _error = null;
     try {
       await ApiService.post(
@@ -305,11 +382,11 @@ class PlantProvider extends ChangeNotifier {
         .toList();
   }
 
-  /// Cargar datos de demostración (sin backend)
+  /// Cargar plantas de ejemplo (sin backend), todas marcadas con isDemo
   void _loadDemoPlants() {
-    _isDemoMode = true;
     _plants = [
       PlantModel(
+        isDemo: true,
         id: 1,
         commonName: 'Echeveria',
         scientificName: 'Echeveria elegans',
@@ -331,6 +408,7 @@ class PlantProvider extends ChangeNotifier {
         minLight: 30.0,
       ),
       PlantModel(
+        isDemo: true,
         id: 2,
         commonName: 'Áloe de arena',
         scientificName: 'Aloe vera',
@@ -348,6 +426,7 @@ class PlantProvider extends ChangeNotifier {
         description: 'Áloe vera conocida por propiedades medicinales.',
       ),
       PlantModel(
+        isDemo: true,
         id: 3,
         commonName: 'Nenúfares',
         scientificName: 'Nymphaea',
@@ -355,6 +434,7 @@ class PlantProvider extends ChangeNotifier {
         location: 'Jardin',
       ),
       PlantModel(
+        isDemo: true,
         id: 4,
         commonName: 'Geranios',
         scientificName: 'Pelargonium',
@@ -362,6 +442,7 @@ class PlantProvider extends ChangeNotifier {
         location: 'Balcon',
       ),
       PlantModel(
+        isDemo: true,
         id: 5,
         commonName: 'Hoja aplastada',
         scientificName: 'Kalanchoe thyrsiflora',

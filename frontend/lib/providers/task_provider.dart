@@ -11,10 +11,25 @@ class TaskProvider extends ChangeNotifier {
   List<TaskModel> _todayTasks = [];
   List<TaskModel> _upcomingTasks = [];
   bool _isLoading = false;
+  int _todayRequestId = 0;
+  int _upcomingRequestId = 0;
 
   List<TaskModel> get todayTasks => _todayTasks;
   List<TaskModel> get upcomingTasks => _upcomingTasks;
   bool get isLoading => _isLoading;
+
+  /// Hay tareas de ejemplo en Hoy (modo demo). Se calcula sobre `todayTasks`.
+  bool get showingDemoTasks => todayTasks.any((t) => t.isDemo);
+
+  /// Limpia todo el estado al cerrar sesión e invalida las peticiones en vuelo.
+  void clearSession() {
+    _todayRequestId++;
+    _upcomingRequestId++;
+    _todayTasks = [];
+    _upcomingTasks = [];
+    _isLoading = false;
+    notifyListeners();
+  }
 
   /// Cantidad total de tareas pendientes
   int get pendingCount => _todayTasks.where((t) => !t.isCompleted).length;
@@ -31,6 +46,7 @@ class TaskProvider extends ChangeNotifier {
 
   /// Cargar tareas de hoy
   Future<void> loadTodayTasks() async {
+    final requestId = ++_todayRequestId;
     _isLoading = true;
     notifyListeners();
 
@@ -39,8 +55,10 @@ class TaskProvider extends ChangeNotifier {
         ApiConstants.tasks,
         queryParams: {'upcoming': 'false'},
       );
+      if (requestId != _todayRequestId) return;
       _todayTasks = (data as List).map((t) => TaskModel.fromJson(t)).toList();
     } catch (e) {
+      if (requestId != _todayRequestId) return;
       _loadDemoTasks();
     }
 
@@ -50,15 +68,18 @@ class TaskProvider extends ChangeNotifier {
 
   /// Cargar tareas próximas
   Future<void> loadUpcomingTasks() async {
+    final requestId = ++_upcomingRequestId;
     try {
       final data = await ApiService.get(
         ApiConstants.tasks,
         queryParams: {'upcoming': 'true'},
       );
+      if (requestId != _upcomingRequestId) return;
       _upcomingTasks = (data as List)
           .map((t) => TaskModel.fromJson(t))
           .toList();
     } catch (e) {
+      if (requestId != _upcomingRequestId) return;
       // Sin datos demo para próximas
     }
     notifyListeners();
@@ -134,6 +155,7 @@ class TaskProvider extends ChangeNotifier {
     final now = DateTime.now();
     _todayTasks = [
       TaskModel(
+        isDemo: true,
         id: 1,
         plantId: 1,
         plantName: 'Echeveria',
@@ -146,6 +168,7 @@ class TaskProvider extends ChangeNotifier {
         createdAt: now.subtract(const Duration(hours: 2)),
       ),
       TaskModel(
+        isDemo: true,
         id: 2,
         plantId: 2,
         plantName: 'Áloe de arena',
@@ -158,6 +181,7 @@ class TaskProvider extends ChangeNotifier {
         createdAt: now.subtract(const Duration(days: 2)),
       ),
       TaskModel(
+        isDemo: true,
         id: 3,
         plantId: 2,
         plantName: 'Áloe de arena',
@@ -170,6 +194,7 @@ class TaskProvider extends ChangeNotifier {
         createdAt: now.subtract(const Duration(days: 3)),
       ),
       TaskModel(
+        isDemo: true,
         id: 4,
         plantId: 1,
         plantName: 'Echeveria',
@@ -182,6 +207,7 @@ class TaskProvider extends ChangeNotifier {
         createdAt: now.subtract(const Duration(days: 3)),
       ),
       TaskModel(
+        isDemo: true,
         id: 5,
         plantId: 2,
         plantName: 'Áloe de arena',
