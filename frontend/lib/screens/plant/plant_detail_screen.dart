@@ -7,14 +7,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../config/demo_messages.dart';
 import '../../config/theme.dart';
 import '../../providers/plant_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/sensor_data_model.dart';
 import '../../widgets/animated_plant.dart';
 import '../../widgets/create_task_sheet.dart';
-import '../../widgets/weather_bar.dart';
-import '../../widgets/sensor_card.dart';
+import '../../widgets/data_notice_banner.dart';
 
 class PlantDetailScreen extends StatefulWidget {
   const PlantDetailScreen({super.key});
@@ -59,7 +59,26 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
     super.dispose();
   }
 
+  /// Una planta de ejemplo no manda órdenes ni navega (spec 005, CA-7).
+  bool _blockIfDemo() {
+    final plant = context.read<PlantProvider>().selectedPlant;
+    if (plant == null || !plant.isDemo) return false;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: const Text(DemoMessages.notAvailable),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    return true;
+  }
+
   Future<void> _handleWatering() async {
+    if (_blockIfDemo()) return;
     final run = ++_waterRun;
     setState(() => _isWatering = true);
 
@@ -130,6 +149,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
 
   Future<void> _handleStopWatering() async {
     if (_isStopping) return;
+    if (_blockIfDemo()) return;
     final plantProvider = context.read<PlantProvider>();
     final plant = plantProvider.selectedPlant;
     if (plant == null) return;
@@ -191,6 +211,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
   }
 
   Future<void> _handleCreateTask(int plantId) async {
+    if (_blockIfDemo()) return;
     final taskType = await showCreateTaskSheet(context, plantId: plantId);
     if (!mounted || taskType == null) return;
 
@@ -213,7 +234,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
         final plant = plantProvider.selectedPlant;
         final sensorData =
             plantProvider.currentSensorData ??
-            SensorDataModel.demo(plant?.id ?? 1, plant?.commonName ?? 'Planta');
+            SensorDataModel.empty(plant?.id ?? 0, plant?.commonName ?? '');
 
         if (plant == null) {
           return const Scaffold(
@@ -228,14 +249,22 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
               children: [
                 // Header
                 _buildHeader(user),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: WeatherBar(
-                    city: user?.city ?? 'Neiva',
-                    weather: 'Parcialmente nublado',
-                    temperature: sensorData.temperature?.round() ?? 26,
+                if (plant.isDemo)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20),
+                    child: DataNoticeBanner(
+                      key: ValueKey('aviso-planta-ejemplo'),
+                      message: DemoMessages.plantBanner,
+                    ),
+                  )
+                else if (plantProvider.sensorsUnavailable)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20),
+                    child: DataNoticeBanner(
+                      key: ValueKey('aviso-sin-conexion'),
+                      message: DemoMessages.sensorsUnavailable,
+                    ),
                   ),
-                ),
                 // Tab bar (Mis Plantas | Tareas)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(25, 10, 20, 10),
@@ -410,14 +439,23 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  '${data.soilHumidity?.round() ?? 0} %',
-                  style: const TextStyle(
-                    color: SolarColors.primary,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
+                data.soilHumidity == null
+                    ? const Text(
+                        DemoMessages.noData,
+                        style: TextStyle(
+                          color: SolarColors.textLight,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      )
+                    : Text(
+                        '${data.soilHumidity!.round()} %',
+                        style: const TextStyle(
+                          color: SolarColors.primary,
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
               ],
             ),
           ),
@@ -460,14 +498,23 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  '${data.temperature?.round() ?? 0} °C',
-                  style: const TextStyle(
-                    color: SolarColors.primary,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
+                data.temperature == null
+                    ? const Text(
+                        DemoMessages.noData,
+                        style: TextStyle(
+                          color: SolarColors.textLight,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      )
+                    : Text(
+                        '${data.temperature!.round()} °C',
+                        style: const TextStyle(
+                          color: SolarColors.primary,
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
               ],
             ),
           ),
@@ -511,7 +558,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
           Text(
             plant.nextFertilizeDate != null
                 ? _formatDate(plant.nextFertilizeDate!)
-                : '26 de Junio',
+                : DemoMessages.noDate,
             style: const TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 16,
@@ -561,11 +608,14 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
               icon: Icons.history,
               label: 'Diagnósticos',
               color: SolarColors.primaryDark,
-              onTap: () => Navigator.pushNamed(
-                context,
-                '/plant-diagnoses',
-                arguments: plant,
-              ),
+              onTap: () {
+                if (_blockIfDemo()) return;
+                Navigator.pushNamed(
+                  context,
+                  '/plant-diagnoses',
+                  arguments: plant,
+                );
+              },
             ),
           ],
         ),

@@ -481,10 +481,10 @@ void main() {
       },
     );
 
-    testWidgets('lectura demo (API caído) muestra sin lecturas, nunca Sana', (
+    testWidgets('lectura vacía (API caído) muestra sin lecturas, nunca Sana', (
       tester,
     ) async {
-      await _mount(tester, _fake(SensorDataModel.demo(7, 'Echeveria')));
+      await _mount(tester, _fake(SensorDataModel.empty(7, 'Echeveria')));
 
       expect(find.text('Según sensores: sin lecturas'), findsOneWidget);
       expect(find.text('Según sensores: Sana'), findsNothing);

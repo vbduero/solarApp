@@ -160,9 +160,9 @@ void main() {
     );
   });
 
-  group('demo', () {
-    test('demo trae Sin datos y puntaje null', () {
-      final demo = SensorDataModel.demo(7, 'Echeveria');
+  group('empty', () {
+    test('empty trae Sin datos y puntaje null', () {
+      final demo = SensorDataModel.empty(7, 'Echeveria');
       expect(demo.healthStatus, 'Sin datos');
       expect(demo.healthScore, isNull);
       expect(demo.needsWater, isFalse);

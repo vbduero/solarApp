@@ -29,6 +29,9 @@ class PlantModel {
   final bool isActive;
   final DateTime? createdAt;
 
+  /// Planta de ejemplo (modo demo). Nunca se lee del JSON del servidor.
+  final bool isDemo;
+
   PlantModel({
     required this.id,
     required this.commonName,
@@ -53,6 +56,7 @@ class PlantModel {
     this.nextFertilizeDate,
     this.isActive = true,
     this.createdAt,
+    this.isDemo = false,
   });
 
   factory PlantModel.fromJson(Map<String, dynamic> json) {
