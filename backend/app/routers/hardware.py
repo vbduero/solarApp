@@ -13,6 +13,7 @@ from ..database import get_db
 from ..models.user import User
 from ..utils.auth import get_current_user
 from ..services.hardware_service import get_device_plant, get_device_plant_for_user, save_diagnosis
+from ..services.health_service import calculate_live_health
 from ..utils.hardware_helper import obtener_datos_actuales, capturar_foto_webcam
 
 router = APIRouter(prefix="/api/hardware", tags=["Hardware ESP8266 & Webcam"])
@@ -29,6 +30,13 @@ def obtener_clima(
     """
     datos = obtener_datos_actuales()
     plant = get_device_plant(db, get_settings().ESP8266_PLANT_ID)
+    # Salud solo con el ESP8266 en línea y la planta del dispositivo del usuario
+    health = calculate_live_health(
+        get_device_plant_for_user(db, get_settings().ESP8266_PLANT_ID, current_user.id),
+        datos["status_conexion"],
+        datos["humedad_suelo"],
+        datos["temperatura"],
+    )
 
     # Mostrar en terminal para verificación
     print(f"--- [HARDWARE ESP8266 SERIAL] ---")
@@ -48,7 +56,9 @@ def obtener_clima(
         "humedad_aire": datos["humedad_aire"],
         "humedad_suelo": datos["humedad_suelo"],
         "humedad_suelo_raw": datos["humedad_suelo_raw"],
-        "led_encendido": datos["led_encendido"]
+        "led_encendido": datos["led_encendido"],
+        "health_status": health.status if health else None,
+        "health_score": health.score if health else None,
     }
 
 
