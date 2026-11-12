@@ -8,7 +8,9 @@ import '../../providers/auth_provider.dart';
 import '../../providers/plant_provider.dart';
 import '../../providers/task_provider.dart';
 import '../../services/api_service.dart';
-import '../../widgets/weather_bar.dart';
+import '../../config/demo_messages.dart';
+import '../../widgets/data_notice_banner.dart';
+import '../../widgets/sensors_info_box.dart';
 import 'my_plants_tab.dart';
 import 'tasks_tab.dart';
 
@@ -588,132 +590,7 @@ class _HomeScreenState extends State<HomeScreen>
   /// Caja de información de sensores IoT del ESP8266
   Widget _buildSensorsInfoBox(BuildContext context) {
     final plantProvider = Provider.of<PlantProvider>(context, listen: false);
-    final sensorData = plantProvider.currentSensorData;
-
-    if (sensorData == null) {
-      return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: SolarColors.cardBgLight,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const Center(
-          child: Text(
-            'Cargando datos de sensores...',
-            style: TextStyle(fontSize: 11, color: Colors.grey),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: SolarColors.cardBgLight,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: SolarColors.primary.withOpacity(0.15)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.sensors, color: SolarColors.primary, size: 16),
-              SizedBox(width: 6),
-              Text(
-                'Lecturas del ESP8266',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                  color: SolarColors.primaryDark,
-                ),
-              ),
-            ],
-          ),
-          const Divider(height: 12, thickness: 0.5),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildSensorItem(
-                icon: Icons.thermostat,
-                label: 'Temperatura',
-                value: '${sensorData.temperature?.toStringAsFixed(1) ?? "25.0"}°C',
-                color: SolarColors.temperature,
-              ),
-              _buildSensorItem(
-                icon: Icons.water_drop,
-                label: 'Humedad Suelo',
-                value: '${sensorData.soilHumidity?.toStringAsFixed(1) ?? "50.0"}%',
-                color: SolarColors.humidity,
-              ),
-              _buildSensorItem(
-                icon: Icons.air,
-                label: 'Humedad Aire',
-                value: '${sensorData.airHumidity?.toStringAsFixed(1) ?? "50.0"}%',
-                color: SolarColors.skyBlue,
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-            decoration: BoxDecoration(
-              color: sensorData.pumpActive == 1
-                  ? Colors.blue.shade50
-                  : Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.water_damage,
-                  size: 13,
-                  color: sensorData.pumpActive == 1 ? Colors.blue : Colors.grey,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Bomba de Riego: ${sensorData.pumpActive == 1 ? "ACTIVA (Regando)" : "Inactiva"}',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
-                    color: sensorData.pumpActive == 1
-                        ? Colors.blue.shade700
-                        : Colors.grey.shade700,
-                  ),
-                ),
-              ],
-            ),
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSensorItem({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 18),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 9, color: SolarColors.textLight),
-        ),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 11.5,
-            fontWeight: FontWeight.bold,
-            color: SolarColors.textPrimary,
-          ),
-        ),
-      ],
-    );
+    return SensorsInfoBox(data: plantProvider.currentSensorData);
   }
 
   /// Parsea la respuesta estructurada de Gemini
@@ -761,23 +638,29 @@ class _HomeScreenState extends State<HomeScreen>
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
     final taskProvider = context.watch<TaskProvider>();
+    final plantProvider = context.watch<PlantProvider>();
+    final modoDemo =
+        plantProvider.showingDemoPlants || taskProvider.showingDemoTasks;
+    final cargando = plantProvider.isLoading || taskProvider.isLoading;
 
     return Scaffold(
       backgroundColor: SolarColors.background,
       body: SafeArea(
         child: Column(
           children: [
-            // Header con menú hamburguesa, clima y perfil
+            // Header con menú hamburguesa y perfil
             _buildHeader(user),
-            // Info del clima
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: WeatherBar(
-                city: user?.city ?? 'Neiva',
-                weather: 'Parcialmente nublado',
-                temperature: 26,
+            // Aviso de datos de ejemplo (visible en las dos pestañas)
+            if (modoDemo)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: DataNoticeBanner(
+                  key: const ValueKey('aviso-modo-demo'),
+                  message: DemoMessages.homeBanner,
+                  showRetry: true,
+                  onRetry: cargando ? null : _loadData,
+                ),
               ),
-            ),
             const SizedBox(height: 8),
             // Título Mis Plantas | Tareas
             _buildTabBar(taskProvider),
@@ -1044,20 +927,22 @@ class _HomeScreenState extends State<HomeScreen>
             ),
             ListTile(
               leading: const Icon(
-                Icons.solar_power,
-                color: SolarColors.secondary,
-              ),
-              title: const Text('Panel Solar'),
-              onTap: () => Navigator.pop(context),
-            ),
-            ListTile(
-              leading: const Icon(
                 Icons.camera_alt_outlined,
                 color: SolarColors.primary,
               ),
               title: const Text('Diagnóstico IA / Cámara En Vivo'),
               onTap: () {
+                final enDemo =
+                    context.read<PlantProvider>().showingDemoPlants ||
+                    context.read<TaskProvider>().showingDemoTasks;
+                final messenger = ScaffoldMessenger.of(context);
                 Navigator.pop(context); // Cerrar menú
+                if (enDemo) {
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text(DemoMessages.notAvailable)),
+                  );
+                  return;
+                }
                 _abrirDiagnosticoIA(context);
               },
             ),
@@ -1094,6 +979,8 @@ class _HomeScreenState extends State<HomeScreen>
               leading: const Icon(Icons.logout, color: SolarColors.error),
               title: const Text('Cerrar Sesión'),
               onTap: () {
+                context.read<PlantProvider>().clearSession();
+                context.read<TaskProvider>().clearSession();
                 context.read<AuthProvider>().logout();
                 Navigator.of(context).pushReplacementNamed('/login');
               },

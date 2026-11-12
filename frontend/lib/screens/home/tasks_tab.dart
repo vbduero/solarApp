@@ -3,7 +3,9 @@
 // ============================================================
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../config/demo_messages.dart';
 import '../../config/theme.dart';
+import '../../models/task_model.dart';
 import '../../providers/task_provider.dart';
 import '../../widgets/task_card.dart';
 
@@ -216,7 +218,7 @@ class _TasksTabState extends State<TasksTab> {
                 final task = tasks[index];
                 return TaskCard(
                   task: task,
-                  onComplete: () => _handleComplete(provider, task.id),
+                  onComplete: () => _handleComplete(provider, task),
                   onTap: () {
                     // Navegar a la planta asociada
                   },
@@ -229,8 +231,14 @@ class _TasksTabState extends State<TasksTab> {
     );
   }
 
-  Future<void> _handleComplete(TaskProvider provider, int taskId) async {
-    final completed = await provider.completeTask(taskId);
+  Future<void> _handleComplete(TaskProvider provider, TaskModel task) async {
+    if (task.isDemo) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(DemoMessages.notAvailable)),
+      );
+      return;
+    }
+    final completed = await provider.completeTask(task.id);
     if (!mounted || completed) return;
 
     ScaffoldMessenger.of(context).showSnackBar(

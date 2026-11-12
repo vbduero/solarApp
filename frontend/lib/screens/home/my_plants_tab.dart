@@ -3,6 +3,7 @@
 // ============================================================
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../config/demo_messages.dart';
 import '../../config/theme.dart';
 import '../../models/plant_model.dart';
 import '../../providers/plant_provider.dart';
@@ -263,7 +264,7 @@ class _MyPlantsTabState extends State<MyPlantsTab> {
         child: const Icon(Icons.delete, color: Colors.white),
       ),
       confirmDismiss: (direction) async {
-        return await showDialog(
+        final confirmed = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('Eliminar Planta'),
@@ -285,14 +286,34 @@ class _MyPlantsTabState extends State<MyPlantsTab> {
             ],
           ),
         );
-      },
-      onDismissed: (direction) async {
+        if (confirmed != true) return false;
+        if (!mounted) return false;
+
+        // Se capturan antes del await: el Dismissible puede desmontarse
+        // mientras el provider carga (la pestaña muestra el indicador).
+        final messenger = ScaffoldMessenger.of(context);
+        if (plant.isDemo) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text(DemoMessages.notAvailable)),
+          );
+          return false;
+        }
         final provider = context.read<PlantProvider>();
-        await provider.deletePlant(plant.id);
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${plant.commonName} eliminada')),
-        );
+        final ok = await provider.deletePlant(plant.id);
+        if (ok) {
+          messenger.showSnackBar(
+            SnackBar(content: Text('${plant.commonName} eliminada')),
+          );
+        } else {
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text(DemoMessages.deleteFailed),
+              backgroundColor: SolarColors.error,
+            ),
+          );
+        }
+        // Siempre false: la tarjeta sale cuando el provider quita la planta.
+        return false;
       },
       child: GestureDetector(
         onTap: () => _navigateToPlant(plant),
