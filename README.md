@@ -102,22 +102,67 @@ Estructura de una spec (propia, sin Spec Kit; plantilla en [`specs/_plantilla/`]
 
 ## 5. Specs
 
-| # | Spec | Pull request | Estado |
-|---|---|---|---|
-| 001 | Estadísticas con datos reales | — | pendiente |
-| 002 | Historial de diagnósticos de IA por planta | — | pendiente |
-| 003 | Detener el riego desde la app | — | pendiente |
-| 004 | Un solo cálculo de salud de la planta | — | pendiente |
-| 005 | Aviso de modo demo y errores visibles | — | pendiente |
+| # | Spec | Pull request | Veredicto del revisor | Estado |
+|---|---|---|---|---|
+| 001 | [Estadísticas con datos reales](specs/001-estadisticas-reales) | [#7](https://github.com/vbduero/solarApp/pull/7) | Rechazada; aprobada con observaciones en la segunda vuelta | Fusionada |
+| 002 | [Historial de diagnósticos de IA por planta](specs/002-historial-diagnosticos) | [#8](https://github.com/vbduero/solarApp/pull/8) | Rechazada; aprobada con observaciones en la segunda vuelta | Fusionada |
+| 003 | [Detener el riego desde la app](specs/003-detener-riego) | [#9](https://github.com/vbduero/solarApp/pull/9) | Aprobada con observaciones | Fusionada |
+| 004 | [Un solo cálculo de salud de la planta](specs/004-calculo-unico-salud) | [#10](https://github.com/vbduero/solarApp/pull/10) | Aprobada con observaciones | Fusionada |
+| 005 | [Aviso de modo demo](specs/005-aviso-modo-demo) | [#11](https://github.com/vbduero/solarApp/pull/11) | Aprobada con observaciones | Fusionada |
+
+En las cinco queda sin marcar la última tarea de `tasks.md`: la comprobación manual de una persona
+(la de las specs 003 y 004 necesita la placa) y la respuesta del equipo a las observaciones de
+`revision.md`.
 
 ## 6. Qué cambió del sistema de agentes respecto del taller
 
 El diseño inicial está en [`docs/agentes-diseno-inicial.md`](docs/agentes-diseno-inicial.md).
-Esta sección se actualiza con cada spec: qué cambió y qué se observó al ejecutarla.
+Las definiciones de `.claude/agents/` no se modificaron después de escribirlo: los cinco agentes,
+sus herramientas y sus modelos son los del diseño. Lo que cambió al ejecutar las cinco specs fue
+**cómo se usaron**. Cada fila dice qué se hizo distinto y qué se observó.
 
-| Cambio | Qué se observó | Spec |
+### Cambios en el flujo
+
+| Cambio respecto del diseño | Qué se observó | Spec |
 |---|---|---|
-| — | Todavía no se ha ejecutado ninguna spec. | — |
+| Los agentes solo existen si la sesión se abre en la carpeta del repositorio. | La spec, el plan y las tareas de la 001 las había escrito un agente genérico que imitaba al `planificador`, porque la sesión se abrió en la carpeta de arriba y `.claude/agents/` no se cargó. Desde la implementación de la 001, todo lo hicieron los agentes reales. | 001 |
+| La aprobación de la spec se hace con preguntas cerradas, no leyendo el borrador entero. | El `planificador` deja cada decisión de producto como pregunta abierta con su recomendación, y la sesión principal se las presenta a la responsable una por una. Las decisiones quedan escritas en la spec con fecha. Lo que el plan decide por su cuenta se anota aparte, en «Diferencias con lo planeado», como «decisiones que la responsable no tomó expresamente». | 001–005 |
+| Varios agentes trabajan a la vez, no en fila. | El diseño ponía `pruebas` → `backend-dev` → `frontend-dev`. En la práctica se lanzaron en paralelo las pruebas de backend y de frontend, y después los dos implementadores, porque escriben en carpetas distintas. Ahorra tiempo, pero tiene un costo: en la 005 se lanzó `frontend-dev` mientras otro agente aún escribía pruebas, la app dejó de compilar un rato y esas pruebas no se pudieron ver en rojo antes del código; se ejecutaron por primera vez contra la implementación. | 001–005 |
+| Las tareas grandes se parten en tandas. | En la 005 la implementación del frontend se dividió en cinco encargos (modelos y providers, Inicio, detalle, pantallas vacías, caja de lecturas) y las pruebas en tres. Un encargo demasiado grande fue lo que dejó colgado a un agente en la 002. | 002, 005 |
+| Hay una vuelta de corrección aunque el revisor apruebe. | En las specs 003, 004 y 005 el revisor aprobó con observaciones. La sesión principal mandó corregir las baratas y claras (dos estados atascados en la 003; pruebas que no protegían lo que decían en la 004 y la 005) con el mismo orden: primero la prueba, luego el código. Las que eran decisión de producto se dejaron a la responsable. | 003–005 |
+| Las correcciones también empiezan por la prueba. | Cuando el revisor rechazó (001 y 002), el agente `pruebas` escribió primero una prueba que reprodujera el hallazgo y después corrigió el implementador. El revisor volvió a revisar y dejó en `revision.md` el historial de las dos vueltas. Nunca hizo falta la tercera. | 001, 002 |
+| El revisor comprueba las pruebas con mutantes. | Sin que el diseño lo pidiera, el `revisor` copió el código a una carpeta temporal, lo rompió a propósito y miró si alguna prueba fallaba. Así aparecieron pruebas que pasaban con el código mal: el tope de temperatura sin ejercitar (004), una prueba de ancho que no detectaba texto recortado (004) y un filtro de desbordes demasiado permisivo (005). | 002–005 |
+| El revisor revisa el árbol de trabajo, no los commits. | El diseño decía comparar `git diff --name-only main...HEAD` con la tabla del plan. Como los commits se hicieron al final, ese comando salía vacío y hubo que indicarle que usara `git status` y `git diff main`. | 001–005 |
+| Los commits se hacen al final, uno por tarea. | El historial de cada rama tiene los commits de pruebas antes que los de código, pero se crearon después de la revisión y cada archivo entró en su versión final. El historial muestra el orden de las tareas, no el momento en que cada prueba estuvo en rojo ni las vueltas de corrección; eso consta en los informes de `pruebas` resumidos en `plan.md` y en `revision.md`. | 001–005 |
+| La sesión principal abre el pull request. | El diseño dejaba a una persona abrir y fusionar. La responsable pidió en cada spec que la sesión hiciera los commits y abriera el PR desde su navegador; la fusión la hizo ella (la 001, la sesión, por encargo suyo y con la CI en verde). | 001–005 |
+
+### Lo que el sistema encontró
+
+| Qué | Cómo apareció | Spec |
+|---|---|---|
+| Fallos de seguridad que nadie había pedido buscar. | Al investigar el código antes de escribir cada spec, el `planificador` encontró que un diagnóstico podía guardarse en la planta de otro usuario (002), que cualquier usuario podía encender o apagar la bomba de la maceta de otro (003) y que regar una planta de ejemplo podía encender la bomba real (005). Los tres entraron en su spec con criterio y prueba. | 002, 003, 005 |
+| Errores que pasaban todas las pruebas. | El `revisor` rechazó la 001 porque una planta seleccionada en otra sesión rompía Estadísticas, y la 002 porque la ruta nueva fallaba si llegaba sin planta. En los dos casos las pruebas estaban en verde y la cobertura por encima del umbral. | 001, 002 |
+| Que una idea era más pequeña de lo que parecía. | Para «detener riego» el `planificador` leyó el firmware y vio que ya entendía la orden `STOP` y que el backend ya tenía el endpoint: faltaba solo la app. No hubo que tocar el firmware. | 003 |
+| Que una sospecha era cierta, con un ejemplo. | Para «cálculo único de salud» encontró dos cálculos distintos (backend y app) y umbrales propios en la carita, y lo demostró con una lectura concreta que daba resultados distintos según el ESP8266 estuviera conectado. | 004 |
+
+### Lo que no funcionó o tiene límites
+
+| Qué | Qué se observó | Spec |
+|---|---|---|
+| Un agente se quedó colgado. | En la 002 el agente `pruebas` dejó de avanzar diez minutos sin escribir nada y falló; otro quedó a medias al cerrarse la sesión, con los archivos escritos pero sin informe. Se relanzaron con encargos más pequeños. Hay que mirar el disco, no solo el informe, para saber qué hizo un agente. | 002 |
+| Los implementadores hacen cosas que nadie pidió. | En la 001 `frontend-dev` añadió horas bajo las gráficas y un tooltip sin criterio de aceptación. Desde entonces el encargo dice «no añadas nada que la spec no pida; propónlo en el informe». Aun así, pasar el formateador a un archivo entero ensució un diff en la 002 y hubo que deshacerlo a mano. | 001, 002 |
+| Pruebas escritas a ciegas tienen defectos propios. | Varias pruebas se escribieron sin poder ejecutarse (el código aún no existía) y fallaron luego por un error de la prueba, no del código: datos de preparación incompletos (005) y comprobaciones de desborde que atrapaban filas ajenas a la spec (002, 005). Los implementadores no las tocaron, como exige el diseño; las corrigió el agente `pruebas`. | 002, 005 |
+| «Decidir si una prueba está mal» no siempre lo decidió una persona. | El diseño lo reserva a una persona. En esos casos la sesión principal decidió acotar la prueba a lo que pedía su criterio y se lo informó a la responsable, en vez de preguntar antes. Fue más rápido, pero es una desviación del diseño. | 002, 005 |
+| Las pruebas de ancho no equivalen a mirar la pantalla. | La fuente de las pruebas de Flutter es más ancha que la real: marca desbordes que quizá no ocurren en un teléfono y obliga a tolerar algunos. Tres pantallas (detalle de la planta, Inicio y el menú) tienen filas que se desbordan en pruebas a 320–360 px desde antes de estas specs; no se corrigieron por estar fuera de alcance. | 002, 004, 005 |
+| El límite de carpetas es una instrucción, no un permiso. | Tal como avisaba la sección 3. No hubo ningún caso de un agente escribiendo fuera de su carpeta, pero lo que lo garantiza es el revisor comparando archivos, no la herramienta. | 001–005 |
+| Nada de esto prueba el hardware. | Ninguna prueba usa la placa, la webcam, Gemini ni PostgreSQL. Todo lo que depende de ellos (que la bomba se apague de verdad, la hora local, las fotos) quedó como paso manual en la última tarea de cada spec. | 001–005 |
+| La configuración del equipo importa. | `flutter` no estaba en el PATH de los agentes y hubo que indicarlo en cada encargo; `git push` y el navegador dependían de qué cuenta estuviera abierta, y una vez el PR tuvo que crearlo la responsable. | 001–005 |
+
+### Decisiones que siguen en manos de una persona
+
+Además de las del diseño inicial, al terminar quedan abiertas: responder las observaciones de cada
+`revision.md`; en la 003, qué mostrar cuando la placa no confirma que la bomba se apagó; y las
+comprobaciones manuales con la placa.
 
 ## 7. Mecanismos de calidad y su evidencia
 
