@@ -141,3 +141,39 @@ def test_device_plant_for_user_devuelve_none_sin_planta(db, user):
     from app.services.hardware_service import get_device_plant_for_user
 
     assert get_device_plant_for_user(db, None, user.id) is None
+
+
+# --- Spec 003: find_active_user_plant e is_device_plant (CA-4, CA-5, CA-6) ---
+# Se importan dentro de cada prueba: si aún no existen, solo fallan estas.
+
+def test_is_device_plant_true_para_la_planta_del_esp8266(db, user, plant):
+    from app.services.hardware_service import is_device_plant
+
+    assert is_device_plant(db, plant, None) is True
+    assert is_device_plant(db, plant, plant.id) is True
+
+
+def test_is_device_plant_false_para_otra_planta_del_usuario(db, user, plant):
+    from app.services.hardware_service import is_device_plant
+
+    second = add_plant(db, user, "Segunda")
+    assert is_device_plant(db, second, plant.id) is False
+    # Sin id configurado la del ESP8266 es la activa más antigua, no la segunda
+    assert is_device_plant(db, second, None) is False
+
+
+def test_is_device_plant_false_con_id_configurado_inexistente(db, user, plant):
+    from app.services.hardware_service import is_device_plant
+
+    assert is_device_plant(db, plant, plant.id + 999) is False
+
+
+def test_find_active_user_plant_ignora_plantas_ajenas_y_borradas(db, user, other_user, plant, other_plant):
+    from app.services.hardware_service import find_active_user_plant
+
+    deleted = add_plant(db, user, "Borrada", is_active=False)
+
+    assert find_active_user_plant(db, plant.id, user.id).id == plant.id
+    assert find_active_user_plant(db, other_plant.id, user.id) is None
+    assert find_active_user_plant(db, deleted.id, user.id) is None
+    assert find_active_user_plant(db, plant.id + 999, user.id) is None
