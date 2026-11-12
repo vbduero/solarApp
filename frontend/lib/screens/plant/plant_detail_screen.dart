@@ -37,7 +37,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
     if (auth.isAuthenticated &&
         plantProvider.selectedPlant != null) {
       plantProvider.loadSensorData(plantProvider.selectedPlant!.id);
-      
+
       // Temporizador para refrescar los datos del sensor en tiempo real cada 3 segundos
       _pollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
         if (mounted && plantProvider.selectedPlant != null) {
@@ -446,6 +446,17 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
               onTap: _isWatering ? null : _handleWatering,
               isLoading: _isWatering,
             ),
+            // Botón Diagnósticos (historial de la planta seleccionada)
+            _buildCircleButton(
+              icon: Icons.history,
+              label: 'Diagnósticos',
+              color: SolarColors.primaryDark,
+              onTap: () => Navigator.pushNamed(
+                context,
+                '/plant-diagnoses',
+                arguments: plant,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 24),
@@ -470,7 +481,8 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
     VoidCallback? onTap,
     bool isLoading = false,
   }) {
-    return GestureDetector(
+    return Flexible(
+      child: GestureDetector(
       onTap: onTap,
       child: Column(
         children: [
@@ -494,15 +506,20 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                 : Icon(icon, color: color, size: 36),
           ),
           const SizedBox(height: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: Colors.black87,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              maxLines: 1,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: Colors.black87,
+              ),
             ),
           ),
         ],
+      ),
       ),
     );
   }

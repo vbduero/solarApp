@@ -119,3 +119,25 @@ def test_save_diagnosis_sin_imagen(db, plant):
     saved = save_diagnosis(db, plant, "ESTADO GENERAL: Saludable")
     assert saved.image_url is None
     assert saved.health_status == HealthStatus.BUENA
+
+
+# --- get_device_plant_for_user (spec 002, CA-8) ---
+# La función se importa dentro de cada prueba: si aún no existe, solo fallan estas
+# y no el resto del archivo.
+
+def test_device_plant_for_user_devuelve_la_planta_si_es_del_usuario(db, user, plant):
+    from app.services.hardware_service import get_device_plant_for_user
+
+    assert get_device_plant_for_user(db, plant.id, user.id).id == plant.id
+
+
+def test_device_plant_for_user_devuelve_none_si_es_de_otro_usuario(db, user, other_plant):
+    from app.services.hardware_service import get_device_plant_for_user
+
+    assert get_device_plant_for_user(db, other_plant.id, user.id) is None
+
+
+def test_device_plant_for_user_devuelve_none_sin_planta(db, user):
+    from app.services.hardware_service import get_device_plant_for_user
+
+    assert get_device_plant_for_user(db, None, user.id) is None

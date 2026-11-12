@@ -58,6 +58,7 @@ async def get_diagnoses(
     plant = db.query(Plant).filter(
         Plant.id == plant_id,
         Plant.user_id == current_user.id,
+        Plant.is_active == True,  # noqa: E712
     ).first()
 
     if not plant:
@@ -65,7 +66,7 @@ async def get_diagnoses(
 
     diagnoses = db.query(AIDiagnosis).filter(
         AIDiagnosis.plant_id == plant_id,
-    ).order_by(desc(AIDiagnosis.created_at)).limit(10).all()
+    ).order_by(desc(AIDiagnosis.created_at), desc(AIDiagnosis.id)).limit(10).all()
 
     return [AIDiagnosisResponse.model_validate(d) for d in diagnoses]
 
