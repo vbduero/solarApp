@@ -232,9 +232,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: WeatherBar(
                     city: user?.city ?? 'Neiva',
-                    weather: sensorData.isHealthy
-                        ? 'Parcialmente nublado'
-                        : 'Parcialmente soleado',
+                    weather: 'Parcialmente nublado',
                     temperature: sensorData.temperature?.round() ?? 26,
                   ),
                 ),
@@ -286,10 +284,19 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                         // Planta animada
                         AnimatedPlantWidget(
                           plantName: plant.commonName,
-                          healthScore: sensorData.healthScore,
                           healthStatus: sensorData.healthStatus,
                           isWatering: _isWatering || (sensorData.pumpActive == 1),
                           size: 340,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Según sensores: ${sensorData.healthLabel}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: SolarColors.primaryDark,
+                          ),
                         ),
                         const SizedBox(height: 30),
                         // Botones Info y Regar
