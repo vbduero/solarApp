@@ -25,6 +25,12 @@ class PlantDetailScreen extends StatefulWidget {
 
 class _PlantDetailScreenState extends State<PlantDetailScreen> {
   bool _isWatering = false;
+  // El API aceptó «Regar» y aún no termina su espera ni se confirmó una detención
+  bool _waterAccepted = false;
+  // Hay una detención enviada o pendiente de confirmar
+  bool _isStopping = false;
+  // Se incrementa en cada «Regar» y al confirmar una detención
+  int _waterRun = 0;
   Timer? _pollingTimer;
 
   @override
@@ -54,6 +60,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
   }
 
   Future<void> _handleWatering() async {
+    final run = ++_waterRun;
     setState(() => _isWatering = true);
 
     const duracionRiego = 10; // segundos, igual a lo que se le pide al ESP8266
@@ -66,8 +73,11 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
           durationSeconds: duracionRiego,
         );
 
+    if (!mounted) return;
+    // Ejecución obsoleta (hubo una detención entretanto): no aplicar nada
+    if (run != _waterRun) return;
+
     if (!ok) {
-      if (!mounted) return;
       setState(() => _isWatering = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -82,10 +92,16 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
       return;
     }
 
+    setState(() => _waterAccepted = true);
+
     // Esperar mientras la bomba riega
     await Future.delayed(const Duration(seconds: duracionRiego));
-    if (mounted) {
-      setState(() => _isWatering = false);
+    // Si se detuvo el riego (run cambió) no hay «completado»
+    if (mounted && run == _waterRun) {
+      setState(() {
+        _isWatering = false;
+        _waterAccepted = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Row(
@@ -97,6 +113,79 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
             borderRadius: BorderRadius.circular(10),
           ),
         ),
+      );
+    }
+  }
+
+  void _showStopSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  Future<void> _handleStopWatering() async {
+    if (_isStopping) return;
+    final plantProvider = context.read<PlantProvider>();
+    final plant = plantProvider.selectedPlant;
+    if (plant == null) return;
+    setState(() => _isStopping = true);
+
+    final ok = await plantProvider.stopWatering(plant.id);
+    if (!mounted) return;
+
+    if (!ok) {
+      setState(() => _isStopping = false);
+      _showStopSnackBar(
+        plantProvider.error ??
+            'No se pudo conectar con el servidor para detener el riego.',
+        SolarColors.error,
+      );
+      return;
+    }
+
+    // El API aceptó la orden: esperar a que el ESP8266 confirme bomba apagada
+    var confirmed = false;
+    for (var i = 0; i < 10; i++) {
+      await Future.delayed(const Duration(seconds: 1));
+      if (!mounted) return;
+      try {
+        await plantProvider.loadSensorData(plant.id);
+      } catch (e) {
+        // Un fallo al consultar cuenta como «no confirmado» (CA-10)
+        debugPrint('Error al confirmar la bomba apagada: $e');
+        if (!mounted) return;
+        break;
+      }
+      if (!mounted) return;
+      final pumpOn = plantProvider.livePumpOn(plant.id);
+      if (pumpOn == false) {
+        confirmed = true;
+        break;
+      }
+      if (pumpOn == null) break; // dejó de estar en línea
+    }
+
+    if (confirmed) {
+      setState(() {
+        _isStopping = false;
+        _waterAccepted = false;
+        _isWatering = false;
+        _waterRun++;
+      });
+      _showStopSnackBar(
+        'Riego detenido. El riego automático puede volver a encender la bomba si la tierra sigue seca.',
+        SolarColors.primary,
+      );
+    } else {
+      setState(() => _isStopping = false);
+      _showStopSnackBar(
+        'Se envió la orden, pero el ESP8266 no confirmó que la bomba se apagó. Revisa la maceta.',
+        SolarColors.error,
       );
     }
   }
@@ -204,7 +293,12 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                         ),
                         const SizedBox(height: 30),
                         // Botones Info y Regar
-                        _buildActionButtons(plant, sensorData),
+                        _buildActionButtons(
+                          plant,
+                          sensorData,
+                          _waterAccepted ||
+                              plantProvider.livePumpOn(plant.id) == true,
+                        ),
                       ],
                     ),
                   ),
@@ -422,7 +516,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
     );
   }
 
-  Widget _buildActionButtons(plant, SensorDataModel data) {
+  Widget _buildActionButtons(plant, SensorDataModel data, bool pumpRunning) {
     final needsWater = data.needsWater;
 
     return Column(
@@ -437,15 +531,24 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
               color: SolarColors.primaryDark,
               onTap: () => Navigator.pushNamed(context, '/plant-info'),
             ),
-            // Botón Regar
-            _buildCircleButton(
-              icon: Icons.water_drop_outlined,
-              label: 'Regar',
-              color: needsWater ? SolarColors.error : SolarColors.primaryDark,
-              isHighlighted: needsWater,
-              onTap: _isWatering ? null : _handleWatering,
-              isLoading: _isWatering,
-            ),
+            // Botón Detener riego (si hay riego en curso) o Regar
+            if (pumpRunning || _isStopping)
+              _buildCircleButton(
+                icon: Icons.stop_circle_outlined,
+                label: _isStopping ? 'Deteniendo…' : 'Detener riego',
+                color: SolarColors.error,
+                isLoading: _isStopping,
+                onTap: _isStopping ? null : _handleStopWatering,
+              )
+            else
+              _buildCircleButton(
+                icon: Icons.water_drop_outlined,
+                label: 'Regar',
+                color: needsWater ? SolarColors.error : SolarColors.primaryDark,
+                isHighlighted: needsWater,
+                onTap: _isWatering ? null : _handleWatering,
+                isLoading: _isWatering && !_waterAccepted,
+              ),
             // Botón Diagnósticos (historial de la planta seleccionada)
             _buildCircleButton(
               icon: Icons.history,
