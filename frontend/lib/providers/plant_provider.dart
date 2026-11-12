@@ -154,40 +154,25 @@ class PlantProvider extends ChangeNotifier {
           num temp = hardwareData['temperatura'] ?? 26.0;
           num humAire =
               hardwareData['humedad_aire'] ?? hardwareData['humedad'] ?? 50.0;
-          num humSuelo = hardwareData['humedad_suelo'] ?? humAire;
           bool ledOn = hardwareData['led_encendido'] ?? false;
-
-          // Calcular dinámicamente el estado de salud basado en la planta
-          double score = 100.0;
-          String status = 'healthy';
-          if (humSuelo < (plant.minHumidity ?? 25.0)) {
-            double deficit = (plant.minHumidity ?? 25.0) - humSuelo;
-            score -= deficit * 2;
-            status = 'needs_water';
-          }
-          if (temp > (plant.maxTemperature ?? 35.0)) {
-            double excess = temp - (plant.maxTemperature ?? 35.0);
-            score -= excess * 3;
-            if (status == 'healthy') status = 'stressed';
-          }
-          score = score.clamp(0.0, 100.0);
-          if (score < 40.0) status = 'critical';
+          // La salud la calcula el backend; la app no la recalcula.
 
           _currentSensorData = SensorDataModel(
             plantId: plantId,
             plantName: plant.commonName,
             temperature: temp.toDouble(),
             airHumidity: humAire.toDouble(),
-            soilHumidity: humSuelo
-                .toDouble(), // Humedad real de suelo del ESP8266
+            soilHumidity: (hardwareData['humedad_suelo'] as num?)?.toDouble(),
             lightLevel: 85.0, // Valor preestablecido para el UI
             solarVoltage: 12.4,
             batteryLevel: 98.0,
             pumpActive: ledOn
                 ? 1
                 : 0, // 1 si el LED del circuito está prendido (tierra seca)
-            healthStatus: status,
-            healthScore: score,
+            healthStatus: SensorDataModel.parseHealthStatus(
+              hardwareData['health_status'],
+            ),
+            healthScore: (hardwareData['health_score'] as num?)?.toDouble(),
             recordedAt: DateTime.now(),
           );
           _livePumpPlantId = plantId;
