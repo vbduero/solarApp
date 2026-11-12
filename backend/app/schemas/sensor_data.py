@@ -62,7 +62,8 @@ class SensorLatestResponse(BaseModel):
     pump_active: int = 0
     
     # Estado de salud calculado
-    health_status: str = "healthy"  # saludable, necesita_agua, necesita_luz, critico
-    health_score: float = 100.0  # Puntaje de 0-100
+    # Valores: "Sana", "Necesita agua", "Exceso de calor", "Critica", "Sin datos"
+    health_status: str = "Sin datos"
+    health_score: Optional[float] = None  # Puntaje 0-100; None si no hay datos
     
     recorded_at: Optional[datetime] = None
