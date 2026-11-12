@@ -15,6 +15,8 @@ import 'config/theme.dart';
 import 'providers/auth_provider.dart';
 import 'providers/plant_provider.dart';
 import 'providers/task_provider.dart';
+import 'providers/diagnosis_provider.dart';
+import 'models/plant_model.dart';
 import 'services/api_service.dart';
 
 // Pantallas
@@ -24,6 +26,7 @@ import 'screens/auth/register_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/plant/plant_detail_screen.dart';
 import 'screens/plant/plant_info_screen.dart';
+import 'screens/plant/diagnosis_history_screen.dart';
 import 'screens/plant/add_plant_screen.dart';
 import 'screens/stats/stats_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
@@ -77,6 +80,24 @@ class SolarGrowApp extends StatelessWidget {
           '/home': (context) => const HomeScreen(),
           '/plant-detail': (context) => const PlantDetailScreen(),
           '/plant-info': (context) => const PlantInfoScreen(),
+          // Provider propio de la pantalla (no global): se descarta al salir
+          '/plant-diagnoses': (context) {
+            final args = ModalRoute.of(context)?.settings.arguments;
+            if (args is! PlantModel) {
+              return Scaffold(
+                appBar: AppBar(title: const Text('Diagnósticos')),
+                body: const Center(child: Text('Planta no encontrada')),
+              );
+            }
+            final plant = args;
+            return ChangeNotifierProvider<DiagnosisProvider>(
+              create: (_) => DiagnosisProvider(),
+              child: DiagnosisHistoryScreen(
+                plantId: plant.id,
+                plantName: plant.commonName,
+              ),
+            );
+          },
           '/add-plant': (context) => const AddPlantScreen(),
           '/stats': (context) => const StatsScreen(),
           '/notifications': (context) => const NotificationsScreen(),
