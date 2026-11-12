@@ -15,10 +15,8 @@ class AnimatedPlantWidget extends StatefulWidget {
   /// Nombre de la planta que se muestra en la maceta
   final String plantName;
 
-  /// Puntaje de salud de 0-100 (determina la expresión)
-  final double healthScore;
-
-  /// Estado de salud: healthy, needs_water, needs_light, critical
+  /// Estado de salud según sensores: Sana, Necesita agua, Exceso de calor,
+  /// Critica o Sin datos (determina la expresión)
   final String healthStatus;
 
   /// Si se está regando activamente
@@ -30,8 +28,7 @@ class AnimatedPlantWidget extends StatefulWidget {
   const AnimatedPlantWidget({
     super.key,
     required this.plantName,
-    this.healthScore = 100.0,
-    this.healthStatus = 'healthy',
+    this.healthStatus = 'Sin datos',
     this.isWatering = false,
     this.size = 280,
   });
@@ -130,8 +127,13 @@ class _AnimatedPlantWidgetState extends State<AnimatedPlantWidget>
     super.dispose();
   }
 
-  bool get _isHealthy => widget.healthScore >= 60;
-  bool get _isCritical => widget.healthScore < 30;
+  // La cara depende solo del estado que calcula el backend.
+  // 'Sana' y 'Sin datos' usan la cara feliz.
+  bool get _isCritical => widget.healthStatus == 'Critica';
+  bool get _isHealthy =>
+      widget.healthStatus != 'Necesita agua' &&
+      widget.healthStatus != 'Exceso de calor' &&
+      !_isCritical;
 
   @override
   Widget build(BuildContext context) {
@@ -397,6 +399,7 @@ class _AnimatedPlantWidgetState extends State<AnimatedPlantWidget>
     if (_isHealthy) {
       // Boca feliz - sonrisa amplia con lengua
       return SizedBox(
+        key: const ValueKey('boca-feliz'),
         width: size * 2.5,
         height: size * 1.5,
         child: CustomPaint(painter: _SmilePainter(showTongue: true)),
@@ -404,6 +407,7 @@ class _AnimatedPlantWidgetState extends State<AnimatedPlantWidget>
     } else {
       // Boca triste
       return SizedBox(
+        key: ValueKey(_isCritical ? 'boca-critica' : 'boca-triste'),
         width: size * 2,
         height: size * 1.2,
         child: CustomPaint(painter: _SadMouthPainter(isCritical: _isCritical)),

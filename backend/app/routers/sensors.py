@@ -15,53 +15,9 @@ from ..schemas.sensor_data import SensorDataCreate, SensorDataResponse, SensorLa
 from ..utils.auth import get_current_user
 from ..config import get_settings
 from ..services import sensor_service
+from ..services.health_service import calculate_sensor_health
 
 router = APIRouter(prefix="/api/sensors", tags=["Sensores"])
-
-
-def calculate_health(plant: Plant, data: SensorData) -> dict:
-    """Calcula el estado de salud de la planta basándose en los sensores.
-    
-    Retorna el estado y un puntaje de 0-100 para determinar
-    si la planta animada se muestra feliz o triste.
-    """
-    score = 100.0
-    status = "healthy"
-    issues = []
-
-    # Verificar humedad del suelo
-    if data.soil_humidity is not None and data.soil_humidity < plant.min_humidity:
-        deficit = plant.min_humidity - data.soil_humidity
-        score -= min(deficit * 2, 40)
-        issues.append("needs_water")
-
-    # Verificar temperatura
-    if data.temperature is not None and data.temperature > plant.max_temperature:
-        excess = data.temperature - plant.max_temperature
-        score -= min(excess * 3, 30)
-        issues.append("too_hot")
-
-    # Verificar luz
-    if data.light_level is not None and data.light_level < plant.min_light:
-        deficit = plant.min_light - data.light_level
-        score -= min(deficit * 1.5, 30)
-        issues.append("needs_light")
-
-    # Determinar estado
-    score = max(0, score)
-    if score >= 70:
-        status = "healthy"
-    elif score >= 40:
-        if "needs_water" in issues:
-            status = "needs_water"
-        elif "needs_light" in issues:
-            status = "needs_light"
-        else:
-            status = "stressed"
-    else:
-        status = "critical"
-
-    return {"health_status": status, "health_score": round(score, 1)}
 
 
 @router.get("/latest/{plant_id}", response_model=SensorLatestResponse)
@@ -88,14 +44,20 @@ async def get_latest_sensors(
     ).order_by(desc(SensorData.recorded_at)).first()
 
     if not latest:
+        health = calculate_sensor_health(
+            None, None, plant.min_humidity, plant.max_temperature
+        )
         return SensorLatestResponse(
             plant_id=plant_id,
             plant_name=plant.common_name,
-            health_status="unknown",
-            health_score=50.0,
+            health_status=health.status,
+            health_score=health.score,
         )
 
-    health = calculate_health(plant, latest)
+    health = calculate_sensor_health(
+        latest.soil_humidity, latest.temperature,
+        plant.min_humidity, plant.max_temperature,
+    )
 
     return SensorLatestResponse(
         plant_id=plant_id,
@@ -107,8 +69,8 @@ async def get_latest_sensors(
         solar_voltage=latest.solar_voltage,
         battery_level=latest.battery_level,
         pump_active=latest.pump_active,
-        health_status=health["health_status"],
-        health_score=health["health_score"],
+        health_status=health.status,
+        health_score=health.score,
         recorded_at=latest.recorded_at,
     )
 

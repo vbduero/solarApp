@@ -14,7 +14,7 @@ class SensorDataModel {
   final double? batteryLevel;
   final int pumpActive;
   final String healthStatus;
-  final double healthScore;
+  final double? healthScore;
   final DateTime? recordedAt;
 
   SensorDataModel({
@@ -27,20 +27,42 @@ class SensorDataModel {
     this.solarVoltage,
     this.batteryLevel,
     this.pumpActive = 0,
-    this.healthStatus = 'healthy',
-    this.healthScore = 100.0,
+    this.healthStatus = 'Sin datos',
+    this.healthScore,
     this.recordedAt,
   });
 
-  /// Indica si la planta está sana (para la animación feliz/triste)
-  bool get isHealthy => healthScore >= 60;
+  /// Estados de salud válidos que manda el backend (cálculo único).
+  static const List<String> _validHealthStatuses = [
+    'Sana',
+    'Necesita agua',
+    'Exceso de calor',
+    'Critica',
+    'Sin datos',
+  ];
+
+  /// Devuelve el estado solo si es exactamente uno de los conocidos;
+  /// cualquier otra cosa (nulo, número, inglés, otro formato) es 'Sin datos'.
+  static String parseHealthStatus(Object? raw) {
+    if (raw is String && _validHealthStatuses.contains(raw)) return raw;
+    return 'Sin datos';
+  }
 
   /// Indica si necesita agua
   bool get needsWater =>
-      healthStatus == 'needs_water' || healthStatus == 'critical';
+      healthStatus == 'Necesita agua' || healthStatus == 'Critica';
 
-  /// Indica si necesita luz
-  bool get needsLight => healthStatus == 'needs_light';
+  /// Texto del estado para mostrar al usuario
+  String get healthLabel {
+    switch (healthStatus) {
+      case 'Critica':
+        return 'Crítica';
+      case 'Sin datos':
+        return 'sin lecturas';
+      default:
+        return healthStatus;
+    }
+  }
 
   factory SensorDataModel.fromJson(Map<String, dynamic> json) {
     return SensorDataModel(
@@ -53,8 +75,8 @@ class SensorDataModel {
       solarVoltage: json['solar_voltage']?.toDouble(),
       batteryLevel: json['battery_level']?.toDouble(),
       pumpActive: json['pump_active'] ?? 0,
-      healthStatus: json['health_status'] ?? 'unknown',
-      healthScore: (json['health_score'] ?? 50.0).toDouble(),
+      healthStatus: parseHealthStatus(json['health_status']),
+      healthScore: (json['health_score'] as num?)?.toDouble(),
       recordedAt: json['recorded_at'] != null
           ? DateTime.parse(json['recorded_at'])
           : null,
@@ -73,8 +95,8 @@ class SensorDataModel {
       solarVoltage: 15.5,
       batteryLevel: 85.0,
       pumpActive: 0,
-      healthStatus: 'healthy',
-      healthScore: 85.0,
+      healthStatus: 'Sin datos',
+      healthScore: null,
       recordedAt: DateTime.now(),
     );
   }
