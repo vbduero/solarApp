@@ -9,13 +9,27 @@ from ..database import get_db
 from ..models.user import User
 from ..models.plant import Plant
 from ..schemas.recommendation import WaterControlRequest, WaterControlResponse
+from ..services.hardware_service import find_active_user_plant, is_device_plant
 from ..utils.auth import get_current_user
 from ..config import get_settings
 from ..utils.hardware_helper import enviar_comando_serial
 
 router = APIRouter(prefix="/api/controls", tags=["Control Remoto"])
 
-settings = get_settings()
+
+def _get_controllable_plant(db: Session, plant_id: int, user: User) -> Plant:
+    """Devuelve la planta si es del usuario, está activa y tiene el ESP8266 conectado.
+
+    404 si no existe, es ajena o está borrada; 409 si no es la planta del ESP8266.
+    """
+    plant = find_active_user_plant(db, plant_id, user.id)
+    if not plant:
+        raise HTTPException(status_code=404, detail="Planta no encontrada")
+    if not is_device_plant(db, plant, get_settings().ESP8266_PLANT_ID):
+        raise HTTPException(
+            status_code=409, detail="Esta planta no tiene el ESP8266 conectado."
+        )
+    return plant
 
 
 @router.post("/water", response_model=WaterControlResponse)
@@ -26,17 +40,10 @@ async def activate_watering(
 ):
     """Activar el riego remoto de una planta.
     
-    Envía un comando MQTT al ESP32 para activar la bomba de agua
-    durante la duración especificada.
+    Envía un comando por puerto serial (USB) al ESP8266 para activar la
+    bomba de agua durante la duración especificada.
     """
-    # Verificar que la planta pertenece al usuario
-    plant = db.query(Plant).filter(
-        Plant.id == request.plant_id,
-        Plant.user_id == current_user.id,
-    ).first()
-
-    if not plant:
-        raise HTTPException(status_code=404, detail="Planta no encontrada")
+    plant = _get_controllable_plant(db, request.plant_id, current_user)
 
     # Construir comando MQTT
     command = {
@@ -76,14 +83,8 @@ async def stop_watering(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Detener el riego de una planta."""
-    plant = db.query(Plant).filter(
-        Plant.id == request.plant_id,
-        Plant.user_id == current_user.id,
-    ).first()
-
-    if not plant:
-        raise HTTPException(status_code=404, detail="Planta no encontrada")
+    """Detener el riego de una planta (siempre envía STOP)."""
+    plant = _get_controllable_plant(db, request.plant_id, current_user)
 
     # Enviar el comando STOP por puerto serial al ESP8266 NodeMCU
     try:
