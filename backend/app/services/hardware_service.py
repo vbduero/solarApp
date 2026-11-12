@@ -49,6 +49,25 @@ def get_device_plant_for_user(
     return plant
 
 
+def find_active_user_plant(db: Session, plant_id: int, user_id: int) -> Optional[Plant]:
+    """Devuelve la planta activa del usuario con ese id; si no, None."""
+    return (
+        db.query(Plant)
+        .filter(
+            Plant.id == plant_id,
+            Plant.user_id == user_id,
+            Plant.is_active == True,  # noqa: E712
+        )
+        .first()
+    )
+
+
+def is_device_plant(db: Session, plant: Plant, configured_plant_id: Optional[int]) -> bool:
+    """Indica si la planta es a la que está conectado el ESP8266 (y es del mismo usuario)."""
+    device_plant = get_device_plant_for_user(db, configured_plant_id, plant.user_id)
+    return device_plant is not None and device_plant.id == plant.id
+
+
 def _normalize(text: str) -> str:
     """Minúsculas y sin tildes, para comparar sin depender de la ortografía."""
     decomposed = unicodedata.normalize("NFD", text.lower())

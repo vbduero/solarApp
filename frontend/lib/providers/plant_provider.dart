@@ -23,6 +23,11 @@ class PlantProvider extends ChangeNotifier {
   String? _historyError;
   int _historyRequestId = 0;
 
+  // Estado en vivo de la bomba (solo cuando el ESP8266 está en línea en esa planta)
+  int? _livePumpPlantId;
+  bool? _livePumpOn;
+  int _sensorRequestId = 0;
+
   /// Historial en orden cronológico ascendente
   List<SensorReadingModel> get sensorHistory => _sensorHistory;
   bool get isHistoryLoading => _isHistoryLoading;
@@ -33,6 +38,11 @@ class PlantProvider extends ChangeNotifier {
   SensorDataModel? get currentSensorData => _currentSensorData;
   bool get isLoading => _isLoading;
   String? get error => _error;
+
+  /// Estado de la bomba según el ESP8266 en línea para esa planta.
+  /// `null` significa que no hay dato en vivo (desconectado, otra planta, BDD o demo).
+  bool? livePumpOn(int plantId) =>
+      _livePumpPlantId == plantId ? _livePumpOn : null;
 
   /// Obtener todas las plantas del usuario
   Future<void> loadPlants() async {
@@ -115,16 +125,21 @@ class PlantProvider extends ChangeNotifier {
   /// Seleccionar una planta y cargar sus sensores
   Future<void> selectPlant(PlantModel plant) async {
     _selectedPlant = plant;
+    _livePumpPlantId = null;
+    _livePumpOn = null;
     notifyListeners();
     await loadSensorData(plant.id);
   }
 
   /// Cargar datos de sensores de una planta
   Future<void> loadSensorData(int plantId) async {
+    final requestId = ++_sensorRequestId;
     try {
       // 1. INTENTO DE CONEXIÓN CON HARDWARE REAL (ESP8266 Serial)
       try {
         final hardwareData = await ApiService.get('/api/hardware/clima-actual');
+        // Ya se lanzó otra carga: esta respuesta es vieja
+        if (requestId != _sensorRequestId) return;
         // Solo usar el hardware si el ESP8266 está realmente conectado (el
         // backend devuelve valores por defecto cuando no lo está) y si está
         // instalado en esta planta; las demás usan sus lecturas guardadas.
@@ -175,6 +190,8 @@ class PlantProvider extends ChangeNotifier {
             healthScore: score,
             recordedAt: DateTime.now(),
           );
+          _livePumpPlantId = plantId;
+          _livePumpOn = ledOn;
           notifyListeners();
           return; // Salimos temprano y exitosamente
         }
@@ -186,8 +203,10 @@ class PlantProvider extends ChangeNotifier {
       final data = await ApiService.get(
         '${ApiConstants.sensorsLatest}/$plantId',
       );
+      if (requestId != _sensorRequestId) return;
       _currentSensorData = SensorDataModel.fromJson(data);
     } catch (e) {
+      if (requestId != _sensorRequestId) return;
       // Datos demo si falla la API
       final plant = _plants.firstWhere(
         (p) => p.id == plantId,
@@ -195,6 +214,9 @@ class PlantProvider extends ChangeNotifier {
       );
       _currentSensorData = SensorDataModel.demo(plantId, plant.commonName);
     }
+    // Lectura de base o demo: no es dato en vivo
+    _livePumpPlantId = null;
+    _livePumpOn = null;
     notifyListeners();
   }
 
@@ -253,6 +275,27 @@ class PlantProvider extends ChangeNotifier {
       return false;
     } catch (e) {
       _error = 'No se pudo conectar con el servidor para activar el riego';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Detener el riego remoto. No recarga sensores: la pantalla espera la
+  /// confirmación del ESP8266.
+  Future<bool> stopWatering(int plantId) async {
+    _error = null;
+    try {
+      await ApiService.post(
+        ApiConstants.controlStopWater,
+        body: {'plant_id': plantId},
+      );
+      return true;
+    } on ApiException catch (e) {
+      _error = e.message;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = 'No se pudo conectar con el servidor para detener el riego.';
       notifyListeners();
       return false;
     }

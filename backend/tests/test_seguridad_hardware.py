@@ -27,6 +27,15 @@ PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"0" * 32
 WEBP_BYTES = b"RIFF\x00\x00\x00\x00WEBP" + b"0" * 32
 
 
+@pytest.fixture(autouse=True)
+def esp8266_plant_sin_configurar(monkeypatch):
+    """Spec 003 (D8): fija ESP8266_PLANT_ID en None para no depender del .env local.
+
+    Así la planta del ESP8266 es siempre la activa más antigua (`plant`).
+    """
+    monkeypatch.setattr(get_settings(), "ESP8266_PLANT_ID", None)
+
+
 @pytest.fixture
 def anonymous_client(db):
     """Cliente sin token: get_current_user NO se sobreescribe."""
