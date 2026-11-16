@@ -32,7 +32,14 @@ commit; el mensaje sugerido va entre paréntesis.
 - [x] T7 · `revisor` · Ejecutar las verificaciones, comparar `git diff --name-only main...HEAD` con
   la tabla «Archivos que se tocan» y escribir el informe en
   `specs/001-estadisticas-reales/revision.md`.
-- [ ] T8 · Persona (Valentina Bermeo) · Comprobación manual con el backend levantado y lecturas en
+- [x] T8 · Persona (Valentina Bermeo) · Comprobación manual con el backend levantado y lecturas en
   la base: abrir Estadísticas desde la barra inferior y desde el menú, cambiar entre 6h/24h/7d/30d,
   cambiar de planta, y apagar el backend para ver el error y «Reintentar». Anotar en el plan las
   «Diferencias con lo planeado», responder las observaciones del revisor y abrir el pull request.
+
+## Comprobación manual realizada
+
+Valentina Bermeo, 2026-11-16, con el backend sobre PostgreSQL y la app en Chrome.
+
+- Estadísticas muestra las gráficas con las lecturas reales de la planta.
+- Las gráficas cambian al tocar 6h, 24h, 7d y 30d y al elegir otra planta.

@@ -139,7 +139,7 @@ se recorta algo:
   - Comprobar que los bloqueos van por `isDemo` y no por id.
   - Probar mutantes de CA-20 (`maxLines: 1`, `softWrap: false`) en el aviso y en «Sin datos».
   - Escribir el informe en `specs/005-aviso-modo-demo/revision.md`.
-- [ ] T10 · Persona (Valentina Bermeo) · Comprobación manual de CA-22 en Chrome y en el emulador,
+- [x] T10 · Persona (Valentina Bermeo) · Comprobación manual de CA-22 en Chrome y en el emulador,
   con el backend sobre PostgreSQL. No hace falta la placa, aunque si está conectada mejor:
   1. Iniciar sesión con `demo@solargrow.com` y comprobar que no hay aviso.
   2. Abrir la Echeveria, apagar `uvicorn` y comprobar que en 3-6 s aparecen «Sin datos» y «Sin
@@ -154,3 +154,12 @@ se recorta algo:
 
   Después: anotar en el plan las «Diferencias con lo planeado», responder las observaciones del
   revisor y abrir el pull request.
+
+## Comprobación manual realizada
+
+Valentina Bermeo, 2026-11-16, con la app en Chrome.
+
+- Con el backend detenido, Inicio muestra el aviso de modo demo con «Reintentar».
+- Recomendaciones y Notificaciones se ven como pantallas vacías, sin contenido inventado.
+- Con el backend encendido no aparece el aviso ni la barra del clima; en una planta sin lecturas las
+  tarjetas dicen «Sin datos» y la fila de fertilización, «Sin fecha».
