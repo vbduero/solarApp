@@ -77,8 +77,8 @@ siguen presentes con los mismos nombres; la única aserción «débil» señalad
 
 | # | Gravedad | Observación | Decisión del equipo | Motivo |
 |---|---|---|---|---|
-| 11 | baja | `frontend/lib/screens/stats/stats_screen.dart` líneas 90–96 (`_reload`): usa `_currentPlant` pero no actualiza `_plantId`. Si un toque (periodo o «Reintentar») llegara justo entre la notificación de una lista sin la planta mostrada y el siguiente `build`, `_reload` pediría `plants.first` y luego `_scheduleFallbackReload` pediría otra vez lo mismo: dos peticiones idénticas. Es inocuo (el contador de CA-8 deja la última, con los mismos datos) y en la práctica muy improbable; se anota solo para que, si se toca, `_reload` fije `_plantId = plant.id`. No se reprodujo. | | |
-| 12 | baja | `specs/001-estadisticas-reales/plan.md`, tabla «Pruebas por criterio»: las 6 pruebas nuevas (y las 2 de empates del backend) solo aparecen descritas en «Diferencias con lo planeado», no en la tabla. Está explicado, pero conviene agregarlas a la tabla para que la trazabilidad CA → prueba quede en un solo sitio. | | |
+| 11 | baja | `frontend/lib/screens/stats/stats_screen.dart` líneas 90–96 (`_reload`): usa `_currentPlant` pero no actualiza `_plantId`. Si un toque (periodo o «Reintentar») llegara justo entre la notificación de una lista sin la planta mostrada y el siguiente `build`, `_reload` pediría `plants.first` y luego `_scheduleFallbackReload` pediría otra vez lo mismo: dos peticiones idénticas. Es inocuo (el contador de CA-8 deja la última, con los mismos datos) y en la práctica muy improbable; se anota solo para que, si se toca, `_reload` fije `_plantId = plant.id`. No se reprodujo. | descartada | Es inocuo y el revisor no logró reproducirlo: el contador de petición deja siempre la última respuesta. No se toca `_reload`. |
+| 12 | baja | `specs/001-estadisticas-reales/plan.md`, tabla «Pruebas por criterio»: las 6 pruebas nuevas (y las 2 de empates del backend) solo aparecen descritas en «Diferencias con lo planeado», no en la tabla. Está explicado, pero conviene agregarlas a la tabla para que la trazabilidad CA → prueba quede en un solo sitio. | aceptada · corregida | Las pruebas nuevas se agregaron a la tabla «Pruebas por criterio» del plan antes del commit. |
 
 ## Historial · primera revisión (RECHAZADA)
 
@@ -104,9 +104,9 @@ quiere dejar constancia, puede usar la tabla de abajo.
 
 | # (1.ª revisión) | Decisión del equipo | Motivo |
 |---|---|---|
-| 1–8 | | |
-| 9 | | |
-| 10 | | |
+| 1–8 | aceptadas · corregidas | Se corrigieron en la vuelta 1, escribiendo primero la prueba de cada una. De la 8 queda el tramo continuo entre lecturas lejanas, que se acepta como aspecto visual. |
+| 9 | descartada | Solo ocurre con SQLite, que se usa en las pruebas; PostgreSQL devuelve la fecha con zona. No se cambia el modelo. |
+| 10 | aceptada | El archivo no entró en ningún commit: se agregaron los archivos uno por uno. |
 
 ## Tareas
 
