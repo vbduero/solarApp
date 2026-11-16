@@ -65,7 +65,7 @@ existente (D10 del plan).
     - no queda ninguna regla de salud en `sensors.py` ni en la app (buscar `needs_water`, `healthy`,
       `isHealthy` y `>= 60`).
   - Escribir el informe en `specs/004-calculo-unico-salud/revision.md`.
-- [ ] T8 · Persona (Valentina Bermeo) · Comprobación manual con la placa (CA-13), con el backend sobre
+- [x] T8 · Persona (Valentina Bermeo) · Comprobación manual con la placa (CA-13), con el backend sobre
   PostgreSQL y el ESP8266 en `SERIAL_PORT`:
   1. Abrir el detalle de la planta del ESP8266 con el sensor de humedad al aire. Debe verse «Según
      sensores: Necesita agua», la cara triste y «Regar» en rojo.
@@ -77,3 +77,18 @@ existente (D10 del plan).
 
   Después: anotar en el plan las «Diferencias con lo planeado», responder las observaciones del
   revisor y abrir el pull request.
+
+## Comprobación manual realizada
+
+Valentina Bermeo, 2026-11-16, con el backend sobre PostgreSQL, la app en Chrome y el ESP8266
+conectado por USB a la planta definida en `ESP8266_PLANT_ID`.
+
+- Con la tierra seca (humedad 28 %): «Según sensores: Necesita agua» y cara triste.
+- Después del riego (humedad 85 %, 34 °C): «Según sensores: Sana» y cara feliz.
+- En una planta sin lecturas: «Según sensores: sin lecturas», tarjetas en «Sin datos» y sin cara
+  triste.
+- Con el cable USB desconectado, el detalle sigue mostrando el estado de la última lectura.
+- En Chrome, la etiqueta y la fila de tres botones se ven completas.
+
+Observado: en una de las capturas la temperatura apareció como «0 °C» mientras la consola del
+backend marcaba 33,5 °C; en la siguiente ya mostraba 34 °C. No se investigó la causa.

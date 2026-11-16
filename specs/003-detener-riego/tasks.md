@@ -65,7 +65,7 @@ commit. No se toca `esp8266_maceta_inteligente/`.
   - Comprobar que `api_constants.dart` y `esp8266_maceta_inteligente/` no están en ningún commit y que
     en `test_seguridad_hardware.py` solo se agregó el fixture de D8.
   - Escribir el informe en `specs/003-detener-riego/revision.md`.
-- [ ] T8 · Persona (Valentina Bermeo) · Comprobación manual con la placa (CA-14), con el backend
+- [x] T8 · Persona (Valentina Bermeo) · Comprobación manual con la placa (CA-14), con el backend
   levantado sobre PostgreSQL y el ESP8266 en `SERIAL_PORT`:
   1. Abrir el detalle de la planta del ESP8266, tocar «Regar» y, antes de 5 s, «Detener riego». La
      bomba debe apagarse físicamente en 3 s o menos, la consola del backend debe mostrar «BOMBA
@@ -81,3 +81,15 @@ commit. No se toca `esp8266_maceta_inteligente/`.
 
   Después: anotar en el plan las «Diferencias con lo planeado», responder las observaciones del
   revisor y abrir el pull request.
+
+## Comprobación manual realizada
+
+Valentina Bermeo, 2026-11-16, con el backend sobre PostgreSQL, la app en Chrome y el ESP8266
+conectado por USB. Para que la placa quedara asociada a una planta de su usuario hubo que definir
+`ESP8266_PLANT_ID` en `backend/.env`; sin esa variable las lecturas se guardaban en la planta
+activa más antigua de la base, que era de otro usuario, y la app mostraba «Sin datos».
+
+- «Regar» enciende la bomba.
+- «Detener riego» la apaga y la app lo confirma.
+- Con la bomba encendida, el botón que se ve en el detalle es «Detener riego».
+- Con el cable USB desconectado, la app avisa que el ESP8266 no está conectado.

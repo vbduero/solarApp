@@ -50,7 +50,7 @@ local de la responsable y no entra en ningún commit.
 - [x] T7 · `revisor` · Ejecutar las verificaciones, comparar `git diff --name-only main...HEAD` con
   la tabla «Archivos que se tocan», comprobar que `api_constants.dart` no está en ningún commit y
   escribir el informe en `specs/002-historial-diagnosticos/revision.md`.
-- [ ] T8 · Persona (Valentina Bermeo) · Comprobación manual con el backend levantado sobre
+- [x] T8 · Persona (Valentina Bermeo) · Comprobación manual con el backend levantado sobre
   PostgreSQL, la webcam y `GEMINI_API_KEY`:
   1. pedir un diagnóstico desde el menú lateral;
   2. abrir el detalle de la planta del ESP8266 y tocar «Diagnósticos»; el nuevo debe salir primero,
@@ -63,3 +63,10 @@ local de la responsable y no entra en ningún commit.
 
   Después: anotar en el plan las «Diferencias con lo planeado», responder las observaciones del
   revisor y abrir el pull request.
+
+## Comprobación manual realizada
+
+Valentina Bermeo, 2026-11-16, con el backend sobre PostgreSQL y la app en Chrome.
+
+- El botón «Diagnósticos» del detalle de la planta abre el historial de esa planta.
+- La fila Info / Regar / Diagnósticos se ve completa en el detalle.
