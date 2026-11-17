@@ -110,9 +110,11 @@ Estructura de una spec (propia, sin Spec Kit; plantilla en [`specs/_plantilla/`]
 | 004 | [Un solo cálculo de salud de la planta](specs/004-calculo-unico-salud) | [#10](https://github.com/vbduero/solarApp/pull/10) | Aprobada con observaciones | Fusionada |
 | 005 | [Aviso de modo demo](specs/005-aviso-modo-demo) | [#11](https://github.com/vbduero/solarApp/pull/11) | Aprobada con observaciones | Fusionada |
 
-En las cinco queda sin marcar la última tarea de `tasks.md`: la comprobación manual de una persona
-(la de las specs 003 y 004 necesita la placa) y la respuesta del equipo a las observaciones de
-`revision.md`.
+Las cinco tienen todas sus tareas marcadas. La comprobación manual de cada una está descrita al final
+de su `tasks.md` (se hizo el 16 de noviembre de 2026, con el ESP8266 conectado para las specs 003 y
+004; [#14](https://github.com/vbduero/solarApp/pull/14)), y la respuesta del equipo a cada
+observación del revisor está en su `revision.md`
+([#13](https://github.com/vbduero/solarApp/pull/13)).
 
 ## 6. Qué cambió del sistema de agentes respecto del taller
 
@@ -155,14 +157,19 @@ sus herramientas y sus modelos son los del diseño. Lo que cambió al ejecutar l
 | «Decidir si una prueba está mal» no siempre lo decidió una persona. | El diseño lo reserva a una persona. En esos casos la sesión principal decidió acotar la prueba a lo que pedía su criterio y se lo informó a la responsable, en vez de preguntar antes. Fue más rápido, pero es una desviación del diseño. | 002, 005 |
 | Las pruebas de ancho no equivalen a mirar la pantalla. | La fuente de las pruebas de Flutter es más ancha que la real: marca desbordes que quizá no ocurren en un teléfono y obliga a tolerar algunos. Tres pantallas (detalle de la planta, Inicio y el menú) tienen filas que se desbordan en pruebas a 320–360 px desde antes de estas specs; no se corrigieron por estar fuera de alcance. | 002, 004, 005 |
 | El límite de carpetas es una instrucción, no un permiso. | Tal como avisaba la sección 3. No hubo ningún caso de un agente escribiendo fuera de su carpeta, pero lo que lo garantiza es el revisor comparando archivos, no la herramienta. | 001–005 |
-| Nada de esto prueba el hardware. | Ninguna prueba usa la placa, la webcam, Gemini ni PostgreSQL. Todo lo que depende de ellos (que la bomba se apague de verdad, la hora local, las fotos) quedó como paso manual en la última tarea de cada spec. | 001–005 |
+| Nada de esto prueba el hardware. | Ninguna prueba usa la placa, la webcam, Gemini ni PostgreSQL. Todo lo que depende de ellos (que la bomba se apague de verdad, la hora local, las fotos) quedó como paso manual en la última tarea de cada spec. Al hacerlo apareció algo que ninguna prueba podía ver: sin `ESP8266_PLANT_ID` en `backend/.env`, la placa guardaba sus lecturas en la planta más antigua de la base, que era de otro usuario, y la app mostraba «Sin datos». | 001–005 |
 | La configuración del equipo importa. | `flutter` no estaba en el PATH de los agentes y hubo que indicarlo en cada encargo; `git push` y el navegador dependían de qué cuenta estuviera abierta, y una vez el PR tuvo que crearlo la responsable. | 001–005 |
 
 ### Decisiones que siguen en manos de una persona
 
-Además de las del diseño inicial, al terminar quedan abiertas: responder las observaciones de cada
-`revision.md`; en la 003, qué mostrar cuando la placa no confirma que la bomba se apagó; y las
-comprobaciones manuales con la placa.
+Las del diseño inicial se cumplieron: una persona aprobó cada spec, respondió las observaciones de
+cada `revision.md` e hizo la comprobación manual, y cada fusión la decidió el equipo.
+
+Quedan abiertas, reconocidas como pendientes en `revision.md`: en la 003, qué mostrar cuando la
+placa no confirma que la bomba se apagó; en la 005, que Estadísticas puede mostrar el historial real
+bajo el nombre de una planta de ejemplo. Y una mejora del arnés: `main` no tiene regla de protección,
+así que la CI marca cada pull request en verde o rojo, pero no impide fusionar en rojo; eso lo decide
+el equipo.
 
 ## 7. Mecanismos de calidad y su evidencia
 
